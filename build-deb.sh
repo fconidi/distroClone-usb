@@ -13,6 +13,8 @@ install -m 644 "$ROOT_DIR/distroclone_usb/translations.json" "$STAGE_DIR/usr/lib
 install -m 755 "$ROOT_DIR/distroclone_usb/boot_unlock.sh" "$STAGE_DIR/usr/lib/distroclone-usb/distroclone_usb/"
 install -m 755 "$ROOT_DIR/helper.py" "$STAGE_DIR/usr/lib/distroclone-usb/helper.py"
 install -m 755 "$ROOT_DIR/packaging/distroclone-usb" "$STAGE_DIR/usr/bin/distroclone-usb"
+install -Dm644 "$ROOT_DIR/packaging/distroclone-usb.menu" "$STAGE_DIR/etc/xdg/menus/applications-merged/distroclone-usb.menu"
+printf '%s\n' '/etc/xdg/menus/applications-merged/distroclone-usb.menu' > "$STAGE_DIR/DEBIAN/conffiles"
 install -m 644 "$ROOT_DIR/packaging/distroclone-usb.desktop" "$STAGE_DIR/usr/share/applications/"
 install -m 644 "$ROOT_DIR/packaging/distroclone-usb.svg" "$STAGE_DIR/usr/share/icons/hicolor/scalable/apps/"
 install -m 644 "$ROOT_DIR/packaging/com.syslinuxos.distroclone-usb.policy" "$STAGE_DIR/usr/share/polkit-1/actions/"
