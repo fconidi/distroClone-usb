@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0 — 2026-10-13
+
+- Shared directory visible at /Shared and in the persistent live user's home.
+- Optional LUKS2 encryption of persistence/Shared or ISO plus all private data.
+- Debian Live / SysLinuxOS initramfs capability checks before target writes.
+- EN/IT/ES/FR/DE encryption controls, phrase confirmation and security explanations.
+- Passwords sent only through stdin; encrypted creation clears logical sectors.
+- Preserve initramfs script ordering and explicitly select decrypted live media.
+- Full encryption uses PBKDF2 for GRUB compatibility and requires a long ASCII
+  phrase; minimal boot code remains readable. Casper encryption is not enabled.
+
 ## 0.1.0 — 2026-10-13
 
 ### Added

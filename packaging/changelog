@@ -1,3 +1,11 @@
+distroclone-usb (0.2.0) unstable; urgency=medium
+
+  * Add private Shared folder and optional LUKS2 encryption for compatible
+    Debian Live / SysLinuxOS images, including full encrypted ISO mode.
+  * Add localized security controls and private stdin passphrase transport.
+
+ -- Franco Conidi <fconidi@gmail.com>  Tue, 13 Oct 2026 22:00:00 +0200
+
 distroclone-usb (0.1.0) unstable; urgency=medium
 
   * Initial release: persistent live USB creator for Debian live-boot and

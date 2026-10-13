@@ -11,5 +11,7 @@ Description: Create persistent live USB drives from Debian and Ubuntu desktop IS
  Graphical companion to distroClone and distroclone-backup.
  Creates GPT USB media with BIOS and unsigned x86-64 UEFI boot,
  an intact live ISO and a separate ext4 persistence partition.
+ Includes a private Shared folder and optional LUKS2 encryption for
+ compatible Debian Live / SysLinuxOS images, including encrypted ISO mode.
  Supports recognized Debian live-boot and Ubuntu casper profiles.
  Requires Secure Boot to be disabled. MX/antiX is not yet supported.
