@@ -10,7 +10,7 @@ desktop ISO. Companion to **distroClone** (ISO creation) and
 
 ```bash
 bash build-deb.sh
-sudo apt install ./dist/distroclone-usb_0.2.0_all.deb
+sudo apt install ./dist/distroclone-usb_0.2.1_all.deb
 distroclone-usb
 ```
 
@@ -28,6 +28,8 @@ installation, and kernel/initramfs upgrades are not guaranteed to take effect.
 The tool creates an **unsigned x86-64 UEFI** loader and a **Legacy BIOS** loader.
 **Disable Secure Boot** to use the generated USB. See
 [compatibility](docs/COMPATIBILITY.md) for implemented and verified combinations.
+
+On SysLinuxOS, launch it from **SysLinuxOS Tools → distroClone USB**.
 
 ## Shared files and optional encryption
 

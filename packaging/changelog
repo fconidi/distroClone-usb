@@ -1,3 +1,9 @@
+distroclone-usb (0.2.1) unstable; urgency=medium
+
+  * Integrate the application into SysLinuxOS Tools using an XDG menu drop-in.
+
+ -- Franco Conidi <fconidi@gmail.com>  Tue, 13 Oct 2026 22:10:00 +0200
+
 distroclone-usb (0.2.0) unstable; urgency=medium
 
   * Add private Shared folder and optional LUKS2 encryption for compatible

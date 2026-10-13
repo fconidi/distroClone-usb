@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-10-13
+
+- Install an XDG menu drop-in for SysLinuxOS Tools, matching existing suite tools.
+
 ## 0.2.0 — 2026-10-13
 
 - Shared directory visible at /Shared and in the persistent live user's home.
