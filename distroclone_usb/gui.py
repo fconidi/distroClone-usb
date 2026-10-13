@@ -1,6 +1,7 @@
 """Unprivileged desktop. All GTK updates happen on the main thread."""
 
 import json
+import resource
 from pathlib import Path
 import subprocess
 import threading
@@ -28,6 +29,7 @@ PHASES = {'inspect': ('Authentication / validating ISO', 0, .05),
 
 class Window(Gtk.ApplicationWindow):
     def __init__(self, app):
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
         super().__init__(application=app, title='distroClone USB')
         self.set_default_size(760, 740)
         self.set_icon_from_file(str(asset_path()))

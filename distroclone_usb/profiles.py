@@ -1,6 +1,6 @@
 """Read boot configurations as data; never execute configuration from an ISO."""
 
-from .i18n import tr
+from .i18n import get_language, tr
 from .crypto import encryption_modules, unlock_search, validate_uuid
 from dataclasses import dataclass
 import re
@@ -93,7 +93,7 @@ def casper_label(info):
 
 def detect_profile(files, configurations, info=''):
     if any(p.startswith('/antiX/') for p in files):
-        raise UnsupportedISO(tr('MX/antiX recognized: persistence is not supported in version 0.1.'))
+        raise UnsupportedISO(tr('MX/antiX recognized: persistence is not supported in this version.'))
     if not any(p.lower() == '/efi/boot/bootx64.efi' for p in files):
         raise UnsupportedISO(tr('An x86-64 live ISO with recognizable UEFI boot is required.'))
     if re.search(r'ubuntu[- ]server|subiquity', info, re.I):
@@ -142,11 +142,12 @@ def grub_config(profile, data_label, persistence_label, mode='none', data_uuid=N
     for title, extra in [('Live - persistence', persistent),
                          ('Live - temporary session', temporary),
                          ('Live - persistence (safe graphics)', persistent + ' nomodeset')]:
+        language_option = f' dcusb.lang={get_language()}' if mode != 'none' else ''
         persist_option = (f' dcusb.persist-uuid={persist_uuid}'
                           if mode != 'none' and extra != temporary else '')
         text += [f'menuentry "distroClone USB: {tr(title)}" {{',
                  '    loopback loop /distroclone/live.iso',
-                 f'    linux (loop){profile.kernel} {args} {base} {extra}{data_option}{persist_option}',
+                 f'    linux (loop){profile.kernel} {args} {base} {extra}{data_option}{persist_option}{language_option}',
                  '    initrd ' + ' '.join(f'(loop){p}' for p in profile.initrds)
                  + (' /distroclone/unlock-initrd.gz' if mode != 'none' else ''), '}']
     return '\n'.join(text) + '\n'

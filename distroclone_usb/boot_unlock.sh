@@ -5,20 +5,34 @@ case "${1:-}" in prereqs) echo ""; exit 0;; esac
 
 fail_closed() {
     unset dcusb_secret
-    panic "distroClone USB: encrypted volumes could not be unlocked. Reboot to retry."
+    panic "$failure"
     # panic may return after an emergency shell; never continue into live discovery.
     while :; do sleep 3600; done
 }
 
+prompt='distroClone USB: enter USB passphrase: '
+failure='distroClone USB: encrypted volumes could not be unlocked. Reboot to retry.'
+language=en
 data_uuid=
 persist_uuid=
 for argument in $(cat /proc/cmdline); do
     case "$argument" in
+        dcusb.lang=*) language=${argument#*=} ;;
         dcusb.data-uuid=*) data_uuid=${argument#*=} ;;
         dcusb.persist-uuid=*) persist_uuid=${argument#*=} ;;
     esac
 done
 [ -n "$data_uuid$persist_uuid" ] || exit 0
+case "$language" in
+    it) prompt='distroClone USB: inserisci la frase segreta USB: '
+        failure='distroClone USB: impossibile sbloccare i volumi cifrati. Riavvia per riprovare.' ;;
+    es) prompt='distroClone USB: introduce la frase secreta USB: '
+        failure='distroClone USB: no se pudieron desbloquear los volúmenes cifrados. Reinicia para reintentar.' ;;
+    fr) prompt='distroClone USB : saisissez la phrase secrète USB : '
+        failure='distroClone USB : impossible de déverrouiller les volumes chiffrés. Redémarrez pour réessayer.' ;;
+    de) prompt='distroClone USB: USB-Passphrase eingeben: '
+        failure='distroClone USB: verschlüsselte Volumes konnten nicht entsperrt werden. Zum Wiederholen neu starten.' ;;
+esac
 
 for volume_uuid in "$data_uuid" "$persist_uuid"; do
     [ -n "$volume_uuid" ] || continue
@@ -44,7 +58,7 @@ open_volume() {
 }
 
 for attempt in 1 2 3; do
-    dcusb_secret=$("$askpass" 'distroClone USB: enter USB passphrase: ' 2>/dev/console) || fail_closed
+    dcusb_secret=$("$askpass" "$prompt" 2>/dev/console) || fail_closed
     if open_volume "$data_uuid" dcusb_data; then
         if open_volume "$persist_uuid" dcusb-persist; then
             unset dcusb_secret

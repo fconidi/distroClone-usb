@@ -281,11 +281,11 @@
     "Version de Casper non reconnue ; étiquette de persistance non vérifiée.",
     "Casper-Version nicht erkannt; Persistenzbezeichnung ist ungeprüft."
   ],
-  "MX/antiX recognized: persistence is not supported in version 0.1.": [
-    "MX/antiX riconosciuta: persistenza non supportata nella versione 0.1.",
-    "MX/antiX reconocido: persistencia no compatible en la versión 0.1.",
-    "MX/antiX reconnu : persistance non prise en charge en version 0.1.",
-    "MX/antiX erkannt: Persistenz wird in Version 0.1 nicht unterstützt."
+  "MX/antiX recognized: persistence is not supported in this version.": [
+    "MX/antiX riconosciuta: persistenza non supportata in questa versione.",
+    "MX/antiX reconocido: persistencia no compatible en esta versión.",
+    "MX/antiX reconnu : persistance non prise en charge dans cette version.",
+    "MX/antiX erkannt: Persistenz wird in dieser Version nicht unterstützt."
   ],
   "An x86-64 live ISO with recognizable UEFI boot is required.": [
     "Serve una ISO live x86-64 con avvio UEFI riconoscibile.",
