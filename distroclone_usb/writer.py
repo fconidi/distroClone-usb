@@ -51,7 +51,7 @@ class Runner:
 
 
 def check_dependencies(mode='none'):
-    required = TOOLS + (('cryptsetup', 'lsinitramfs') if mode != 'none' else ())
+    required = TOOLS + (('cryptsetup', 'lsinitramfs', 'unmkinitramfs') if mode != 'none' else ())
     missing = [cmd for cmd in required if not shutil.which(cmd, path=SYSTEM_PATH)]
     for target in ('i386-pc', 'x86_64-efi'):
         if not Path(f'/usr/lib/grub/{target}/modinfo.sh').is_file():
@@ -183,7 +183,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
             raise ValueError(tr('The ISO changed after selection. No data was written.'))
         validate_encryption(image.profile, mode, password)
         if mode != 'none':
-            check_initrd_capabilities(fd, image.profile, uid)
+            initrd_order = check_initrd_capabilities(fd, image.profile, uid)
         sector_size = int(runner.run('blockdev', '--getss', device))
         layout = make_layout(disk['size'], image.size, persistence_mib, sector_size)
         folder = Path(tempfile.mkdtemp(prefix='distroclone-usb-'))
@@ -238,7 +238,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
                 (paths['data'] / 'distroclone').mkdir()
                 copy_verified(fd, paths['data'] / 'distroclone/live.iso', sha256, emit)
                 if mode != 'none':
-                    write_supplemental_initrd(paths['data'] / 'distroclone/unlock-initrd.gz')
+                    write_supplemental_initrd(paths['data'] / 'distroclone/unlock-initrd.gz', initrd_order)
                 emit('progress', phase='boot', fraction=0)
                 install_boot(image.profile, paths, data_label, persistence_label, runner,
                              mode, luks_ids.get(3), luks_ids.get(4))

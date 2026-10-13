@@ -137,7 +137,8 @@ def grub_config(profile, data_label, persistence_label, mode='none', data_uuid=N
     else:
         raise UnsupportedISO(tr('Unknown profile.'))
     args = ' '.join(profile.arguments)
-    data_option = f' dcusb.data-uuid={data_uuid}' if mode == 'all' else ''
+    data_option = (f' dcusb.data-uuid={data_uuid} live-media=/dev/mapper/dcusb_data'
+                   if mode == 'all' else '')
     for title, extra in [('Live - persistence', persistent),
                          ('Live - temporary session', temporary),
                          ('Live - persistence (safe graphics)', persistent + ' nomodeset')]:

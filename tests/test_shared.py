@@ -18,18 +18,20 @@ class SharedTest(unittest.TestCase):
             root = Path(folder)
             prepare_shared(root, self.profile(), '12345678-1234-1234-1234-123456789abc')
             self.assertEqual((root / 'Shared').stat().st_mode & 0o777, 0o700)
-            self.assertEqual(os.readlink(root / 'rw/home/admin/Shared'), '/Shared')
+            self.assertEqual(os.readlink(root / 'rw/etc/skel/Shared'), '/Shared')
             service = root / 'rw/etc/systemd/system/distroclone-usb-shared.service'
             text = service.read_text()
             self.assertIn('UUID=12345678-1234-1234-1234-123456789abc', text)
             self.assertIn('nosuid,nodev,noexec', text)
+            self.assertIn('ln -sT /Shared /home/admin/Shared', text)
+            self.assertFalse((root / 'rw/home/admin').exists())
             self.assertNotIn('ExecStart=/Shared', text)
             self.assertTrue((service.parent / 'multi-user.target.wants' / service.name).is_symlink())
 
     def test_casper_uses_upper_overlay(self):
         with tempfile.TemporaryDirectory() as folder, patch('os.chown'):
             prepare_shared(Path(folder), self.profile('casper'), '12345678-1234-1234-1234-123456789abc')
-            self.assertTrue((Path(folder) / 'upper/home/admin/Shared').is_symlink())
+            self.assertTrue((Path(folder) / 'upper/etc/skel/Shared').is_symlink())
             self.assertFalse((Path(folder) / 'rw').exists())
 
     def test_private_creation_umask_does_not_break_live_system_permissions(self):
@@ -39,7 +41,7 @@ class SharedTest(unittest.TestCase):
                 prepare_shared(Path(folder), self.profile(), '12345678-1234-1234-1234-123456789abc')
             finally:
                 os.umask(previous)
-            for name in ('rw', 'rw/etc', 'rw/etc/systemd', 'rw/etc/systemd/system', 'rw/home'):
+            for name in ('rw', 'rw/etc', 'rw/etc/systemd', 'rw/etc/systemd/system', 'rw/etc/skel'):
                 self.assertEqual((Path(folder) / name).stat().st_mode & 0o777, 0o755)
 
     def test_invalid_uuid_is_rejected_without_creating_files(self):
