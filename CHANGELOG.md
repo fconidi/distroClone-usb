@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 — 2026-10-13
+
+- Use quick formatting for encrypted creation, without overwriting the whole USB.
+- Accept passphrases from 12 characters in both encrypted modes.
+- Add Cancel with a private helper control pipe and cleanup of mounts/LUKS maps.
+- Prevent child tools from consuming control input and handle cancelled open/mount
+  commands whose kernel operation already succeeded.
+
 ## 0.2.1 — 2026-10-13
 
 - Install an XDG menu drop-in for SysLinuxOS Tools, matching existing suite tools.

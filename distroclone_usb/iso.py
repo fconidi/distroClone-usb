@@ -77,7 +77,7 @@ def inspect_fd(fd, path, uid=None, progress=None):
     def run(*args):
         result = subprocess.run(['/usr/bin/xorriso', '-abort_on', 'FAILURE',
                                  '-indev', f'/proc/self/fd/{fd}', *args],
-                                pass_fds=(fd,), preexec_fn=demote(uid),
+                                stdin=subprocess.DEVNULL, pass_fds=(fd,), preexec_fn=demote(uid),
                                 env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
                                 capture_output=True, text=True, timeout=120)
         if result.returncode:

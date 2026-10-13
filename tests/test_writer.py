@@ -72,3 +72,17 @@ class WriterTest(unittest.TestCase):
                 with mount_volumes('/dev/sdb', Path(folder), FakeRunner()):
                     pass
             self.assertTrue((Path(folder) / 'data').exists())
+
+    def test_cancelled_mount_is_unmounted_if_syscall_already_succeeded(self):
+        from distroclone_usb.cancellation import CancellationRequested
+        calls = []
+        class FakeRunner:
+            def run(self, command, *args, **kwargs):
+                calls.append((command,args))
+                if command == 'mount':
+                    raise CancellationRequested('test cancellation')
+        with tempfile.TemporaryDirectory() as folder, patch('os.path.ismount', return_value=True):
+            with self.assertRaises(CancellationRequested):
+                with mount_volumes('/dev/sdz',Path(folder),FakeRunner()):
+                    self.fail('Must not enter after cancelled mount')
+        self.assertEqual(calls[-1], ('umount',(folder+'/efi',)))

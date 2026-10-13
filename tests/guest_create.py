@@ -10,7 +10,8 @@ sys.path.insert(0, '/usr/lib/distroclone-usb')
 from distroclone_usb.devices import device_token, eligible_disks, inventory
 from distroclone_usb.crypto import encryption_modules
 
-TEST_PASSPHRASE = 'distroClone TEST USB 2026 only'
+quick_probe = os.environ.get('DCUSB_TEST_QUICK_CANCEL_PROBE') == '1'
+TEST_PASSPHRASE = 'Abcd1234Efgh' if quick_probe else 'distroClone TEST USB 2026 only'
 mode = os.environ.get('DCUSB_TEST_MODE', 'none')
 
 disks = eligible_disks(inventory())
@@ -20,11 +21,50 @@ assert disk['tran'] == 'usb' and disk['size'] == 9 * 1024**3, disk
 iso = next(Path('/iso').glob('*.iso'))
 expected = json.loads(Path('/app/.test-artifacts/iso-input.json').read_text())
 print('DCUSB_START_WRITER', flush=True)
-subprocess.run(['/usr/lib/distroclone-usb/helper.py', '--iso', str(iso), '--device', disk['name'],
-                '--persistence-mib', '2048', '--expected-id', device_token(disk),
-                '--confirm', Path(disk['name']).name, '--sha256', expected['sha256'], '--encrypt-mode', mode],
-               input=(json.dumps({'password': TEST_PASSPHRASE}).encode()+b'\n') if mode != 'none' else None,
-               env={**os.environ, 'PKEXEC_UID': '1000'}, check=True)
+command = ['/usr/lib/distroclone-usb/helper.py', '--iso', str(iso), '--device', disk['name'],
+           '--persistence-mib', '2048', '--expected-id', device_token(disk),
+           '--confirm', Path(disk['name']).name, '--sha256', expected['sha256'], '--encrypt-mode', mode]
+secret_input = (json.dumps({'password': TEST_PASSPHRASE}).encode()+b'\n') if mode != 'none' else b''
+if quick_probe:
+    marker = b'DCUSB_QUICK_REUSE_SENTINEL'
+    raw_fd = os.open(disk['name'], os.O_RDWR | os.O_NOFOLLOW)
+    os.pwrite(raw_fd, marker, 512 * 1024)
+    os.fsync(raw_fd)
+    os.close(raw_fd)
+    for cancel in (True, False):
+        process = subprocess.Popen(command+['--control-stdin'], stdin=subprocess.PIPE,
+                                   stdout=subprocess.PIPE, env={**os.environ, 'PKEXEC_UID':'1000'})
+        process.stdin.write(secret_input)
+        process.stdin.flush()
+        requested, cancelled, completed = False, False, False
+        for line in process.stdout:
+            sys.stdout.buffer.write(line)
+            sys.stdout.flush()
+            event = json.loads(line)
+            assert event.get('phase') != 'erase', 'Unexpected whole-device wipe'
+            if cancel and not requested and event.get('phase') == 'copy':
+                process.stdin.write(b'cancel\n')
+                process.stdin.flush()
+                requested = True
+            cancelled = cancelled or event.get('event') == 'cancelled'
+            completed = completed or event.get('event') == 'done'
+        code = process.wait(timeout=10)
+        process.stdin.close()
+        process.stdout.close()
+        if cancel:
+            assert requested and cancelled and code == 2, (requested,cancelled,code)
+            assert not any('distroclone-usb-' in line for line in Path('/proc/mounts').read_text().splitlines())
+            assert 'No devices found' in subprocess.check_output(['dmsetup','ls'],text=True)
+            print('DCUSB_CANCEL_CLEANUP_PASS', flush=True)
+        else:
+            assert completed and code == 0, code
+    raw_fd = os.open(disk['name'], os.O_RDONLY)
+    assert os.pread(raw_fd,len(marker),512*1024)==marker, 'Whole-device clearing was performed'
+    os.close(raw_fd)
+    print('DCUSB_QUICK_FORMAT_12_CHAR_PASS',flush=True)
+else:
+    subprocess.run(command, input=secret_input if mode != 'none' else None,
+                   env={**os.environ, 'PKEXEC_UID':'1000'}, check=True)
 mapped = {}
 for number, role in ((3, 'data'), (4, 'persist')):
     raw = disk['name'] + str(number)

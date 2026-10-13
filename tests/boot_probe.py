@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--mode', choices=('write', 'read'), required=True)
     parser.add_argument('--log', required=True)
     parser.add_argument('--encrypted', action='store_true')
+    parser.add_argument('--short-test-key', action='store_true')
     parser.add_argument('--shared', action='store_true')
     parser.add_argument('--interactive', action='store_true', help='Legacy init=/bin/sh test images only')
     parser.add_argument('--reject-password', action='store_true')
@@ -59,7 +60,7 @@ def main():
                     if args.encrypted:
                         tail = bytes(transcript[prompt_offset:])
                         if b'Enter passphrase for' in tail or b'distroClone USB: enter USB passphrase: ' in tail:
-                            process.stdin.write(b'WRONG TEST PASSWORD\n' if args.reject_password else b'distroClone TEST USB 2026 only\n')
+                            process.stdin.write(b'WRONG TEST PASSWORD\n' if args.reject_password else (b'Abcd1234Efgh\n' if args.short_test_key else b'distroClone TEST USB 2026 only\n'))
                             process.stdin.flush()
                             prompt_offset = len(transcript)
                     if args.interactive and not args.reject_password and not sent and (b'job control turned off' in transcript or b'\n# ' in transcript

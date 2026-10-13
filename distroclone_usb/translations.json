@@ -623,18 +623,6 @@
     "Chiffrement complet : ISO et données privées chiffrées ; le code de démarrage reste lisible. Clavier US au démarrage. GRUB et Linux demandent le mot de passe séparément.",
     "Vollständige Verschlüsselung: ISO und private Daten sind verschlüsselt; der Startcode bleibt lesbar. US-Tastaturlayout beim Start. GRUB und Linux fragen getrennt."
   ],
-  "Encrypted creation clears the entire USB first and may take longer. Forgotten passphrases cannot be recovered.": [
-    "La creazione cifrata pulisce prima tutta la USB e può richiedere più tempo. Le frasi segrete dimenticate non sono recuperabili.",
-    "La creación cifrada borra primero todo el USB y puede tardar más. Las frases olvidadas no se pueden recuperar.",
-    "La création chiffrée nettoie d’abord toute la clé et peut prendre plus de temps. Les phrases secrètes oubliées sont irrécupérables.",
-    "Die verschlüsselte Erstellung überschreibt zuerst den gesamten USB und kann länger dauern. Vergessene Passphrasen sind nicht wiederherstellbar."
-  ],
-  "Clearing previous USB contents": [
-    "Pulizia dei dati precedenti sulla USB",
-    "Borrando el contenido anterior del USB",
-    "Nettoyage des anciennes données USB",
-    "Vorherige USB-Inhalte werden überschrieben"
-  ],
   "Encryption": [
     "Cifratura",
     "Cifrado",
@@ -646,5 +634,23 @@
     "Vuelve a introducir la frase tras cambiar el idioma.",
     "Saisissez à nouveau la phrase secrète après le changement de langue.",
     "Gib die Passphrase nach dem Sprachwechsel erneut ein."
+  ],
+  "Encrypted creation uses quick formatting. Forgotten passphrases cannot be recovered.": [
+    "La creazione cifrata usa la formattazione rapida. Le frasi segrete dimenticate non sono recuperabili.",
+    "La creación cifrada usa formato rápido. Las frases secretas olvidadas no se pueden recuperar.",
+    "La création chiffrée utilise un formatage rapide. Les phrases secrètes oubliées sont irrécupérables.",
+    "Die verschlüsselte Erstellung nutzt Schnellformatierung. Vergessene Passphrasen sind nicht wiederherstellbar."
+  ],
+  "Cancelling USB creation. Please wait for cleanup.": [
+    "Annullamento della creazione USB. Attendi la chiusura delle risorse.",
+    "Cancelando la creación USB. Espera a que se liberen los recursos.",
+    "Annulation de la création USB. Veuillez attendre la libération des ressources.",
+    "USB-Erstellung wird abgebrochen. Bitte auf die Freigabe der Ressourcen warten."
+  ],
+  "Creation cancelled. The USB may be incomplete.": [
+    "Creazione annullata. La USB potrebbe essere incompleta.",
+    "Creación cancelada. El USB puede estar incompleto.",
+    "Création annulée. La clé USB peut être incomplète.",
+    "Erstellung abgebrochen. Der USB-Stick ist möglicherweise unvollständig."
   ]
 }
