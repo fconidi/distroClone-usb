@@ -1,5 +1,6 @@
 """Read boot configurations as data; never execute configuration from an ISO."""
 
+from .i18n import tr
 from dataclasses import dataclass
 import re
 import shlex
@@ -86,16 +87,16 @@ def casper_label(info):
         return 'writable' if tuple(map(int, ubuntu.groups())) >= (20, 4) else 'casper-rw'
     if mint:
         return 'writable' if int(mint.group(1)) >= 20 else 'casper-rw'
-    raise UnsupportedISO('Casper: versione non riconosciuta; etichetta di persistenza non verificata.')
+    raise UnsupportedISO(tr('Casper version not recognized; persistence label is unverified.'))
 
 
 def detect_profile(files, configurations, info=''):
     if any(p.startswith('/antiX/') for p in files):
-        raise UnsupportedISO('MX/antiX riconosciuta: persistenza non supportata nella versione 0.1.')
+        raise UnsupportedISO(tr('MX/antiX recognized: persistence is not supported in version 0.1.'))
     if not any(p.lower() == '/efi/boot/bootx64.efi' for p in files):
-        raise UnsupportedISO('Serve una ISO live x86-64 con avvio UEFI riconoscibile.')
+        raise UnsupportedISO(tr('An x86-64 live ISO with recognizable UEFI boot is required.'))
     if re.search(r'ubuntu[- ]server|subiquity', info, re.I):
-        raise UnsupportedISO('ISO di installazione server: sessione live persistente non supportata.')
+        raise UnsupportedISO(tr('Server installer ISO: persistent live sessions are not supported.'))
     for config in configurations:
         for kernel, initrds, args in boot_entries(config):
             if kernel not in files or not initrds or any(p not in files for p in initrds):
@@ -110,13 +111,13 @@ def detect_profile(files, configurations, info=''):
                     args = ('boot=casper',) + args
                 return Profile('casper', info.strip()[:160] or 'Ubuntu Live', kernel,
                                initrds, args, casper_label(info))
-    raise UnsupportedISO('Nessun profilo live compatibile trovato nei menu di avvio della ISO.')
+    raise UnsupportedISO(tr('No compatible live profile found in the ISO boot menus.'))
 
 
 def grub_config(profile, data_label, persistence_label):
     for label in (data_label, persistence_label):
         if not re.fullmatch(r'[A-Za-z0-9\-]{1,16}', label):
-            raise ValueError('Invalid filesystem label')
+            raise ValueError(tr('Invalid filesystem label.'))
     text = ['set default=0', 'set timeout=10', 'insmod part_gpt', 'insmod ext2',
             'insmod iso9660', 'insmod loopback',
             f'search --no-floppy --label --set=root {data_label}']
@@ -128,12 +129,12 @@ def grub_config(profile, data_label, persistence_label):
         base = 'iso-scan/filename=/distroclone/live.iso'
         persistent, temporary = 'persistent', 'nopersistent'
     else:
-        raise UnsupportedISO('Unknown profile')
+        raise UnsupportedISO(tr('Unknown profile.'))
     args = ' '.join(profile.arguments)
     for title, extra in [('Live - persistence', persistent),
                          ('Live - temporary session', temporary),
                          ('Live - persistence (safe graphics)', persistent + ' nomodeset')]:
-        text += [f'menuentry "distroClone USB: {title}" {{',
+        text += [f'menuentry "distroClone USB: {tr(title)}" {{',
                  '    loopback loop /distroclone/live.iso',
                  f'    linux (loop){profile.kernel} {args} {base} {extra}',
                  '    initrd ' + ' '.join(f'(loop){p}' for p in profile.initrds), '}']

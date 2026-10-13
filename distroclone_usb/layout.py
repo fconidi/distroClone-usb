@@ -3,6 +3,8 @@
 from dataclasses import asdict, dataclass
 import math
 
+from .i18n import tr
+
 MIB = 1024 * 1024
 
 
@@ -31,16 +33,16 @@ class Layout:
 
 def make_layout(disk_bytes, iso_bytes, persistence_mib, sector_size=512):
     if sector_size not in (512, 4096):
-        raise ValueError('Dimensione settore non supportata.')
+        raise ValueError(tr('Unsupported sector size.'))
     if not isinstance(persistence_mib, int) or persistence_mib < 512:
-        raise ValueError('La persistenza deve essere almeno 512 MiB.')
+        raise ValueError(tr('Persistence must be at least 512 MiB.'))
     if iso_bytes <= 0:
-        raise ValueError('ISO vuota.')
+        raise ValueError(tr('Empty ISO.'))
     total_mib = disk_bytes // MIB
     data_mib = total_mib - 1 - 2 - 256 - persistence_mib - 1
     minimum_data = math.ceil(iso_bytes / MIB) + max(256, math.ceil(iso_bytes / MIB * .05))
     if data_mib < minimum_data:
-        raise ValueError('Spazio insufficiente per ISO, avvio e persistenza richiesta.')
+        raise ValueError(tr('Not enough space for the ISO, boot files and requested persistence.'))
     entries = [(2, '21686148-6449-6E6F-744E-656564454649', 'DCUSB-BIOS'),
                (256, 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B', 'DCUSB-EFI'),
                (data_mib, '0FC63DAF-8483-4772-8E79-3D69D8477DE4', 'DCUSB-DATA'),

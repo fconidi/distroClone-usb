@@ -3,7 +3,7 @@
 ## 0.1.0 — 2026-10-13
 
 ### Added
-- GTK desktop in Italian and English with explicit USB selection and typed erasure confirmation.
+- GTK desktop in English, Italian, Spanish, French and German, with an in-app language selector, explicit USB selection and typed erasure confirmation.
 - Debian live-boot and recognized Ubuntu/Linux Mint casper persistence profiles.
 - GPT USB layout, BIOS boot and unsigned removable x86-64 UEFI boot.
 - SHA-256 source and destination verification; fresh device and capacity checks.

@@ -1,5 +1,6 @@
 """Device inventory and fail-closed eligibility rules, shared by UI and helper."""
 
+from .i18n import tr
 import hashlib
 import json
 import os
@@ -45,18 +46,18 @@ def eligible_disks(disks):
 def validate_target(disks, device, expected, confirmation, source_dev=None):
     disk = next((d for d in disks if d['name'] == device), None)
     if disk is None or disk not in eligible_disks(disks):
-        raise ValueError('Dispositivo non idoneo: selezionare un intero disco USB/rimovibile scrivibile.')
+        raise ValueError(tr('Select a writable whole USB/removable disk.'))
     if not expected or device_token(disk) != expected:
-        raise ValueError('Il dispositivo è cambiato: aggiornare la selezione USB.')
+        raise ValueError(tr('The device changed. Refresh the USB selection.'))
     if confirmation != Path(device).name:
-        raise ValueError('Conferma di cancellazione non corrispondente al dispositivo.')
+        raise ValueError(tr('Erasure confirmation does not match the device.'))
     if source_dev and any(n.get('maj:min') == source_dev for n in walk(disk)):
-        raise ValueError('La ISO sorgente si trova sul disco selezionato.')
+        raise ValueError(tr('The source ISO is on the selected disk.'))
     if mounts(disk):
-        raise ValueError('Il disco contiene volumi montati o swap attivo. Smontarli prima di procedere.')
+        raise ValueError(tr('The disk has mounted volumes or active swap. Unmount them first.'))
     # Device-mapper, RAID and other holders are forbidden even if not mounted.
     if any(n.get('type') not in {'disk', 'part'} for n in walk(disk)):
-        raise ValueError('Il disco è in uso da un volume cifrato, RAID o altro dispositivo.')
+        raise ValueError(tr('The disk is in use by encryption, RAID or another device.'))
     return disk
 
 

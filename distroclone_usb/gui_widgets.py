@@ -6,7 +6,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, GdkPixbuf
 
-from .i18n import tr
+from .i18n import LANGUAGES, get_language, tr
 
 
 def asset_path():
@@ -33,6 +33,15 @@ class Form(Gtk.Box):
         titles.pack_start(label('distroClone USB', 'app-title'), False, False, 0)
         titles.pack_start(label('Your system, ready to travel.', 'dim-label'), False, False, 0)
         header.pack_start(titles, True, True, 0)
+        language_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        language_box.pack_start(label('Language'), False, False, 0)
+        self.language = Gtk.ComboBoxText()
+        for code, name in LANGUAGES.items():
+            self.language.append(code, code.upper() + ' · ' + name)
+        self.language.set_active_id(get_language())
+        self.language.get_accessible().set_name(tr('Language'))
+        language_box.pack_start(self.language, False, False, 0)
+        header.pack_end(language_box, False, False, 0)
         self.pack_start(header, False, False, 0)
         self.pack_start(Gtk.Separator(), False, False, 0)
         self.pack_start(label('1. Live ISO', 'heading'), False, False, 0)
@@ -96,7 +105,7 @@ def confirm_creation(parent, image, disk, persistence_mib):
     content.set_spacing(14)
     summary = (tr('This permanently erases every partition and file on:') + '\n\n'
                f'{disk["name"]} — {disk.get("model") or "USB"}\n'
-               f'{disk["size"] / 1024**3:.1f} GiB · Serial: {disk.get("serial") or "—"}\n\n'
+               f'{disk["size"] / 1024**3:.1f} GiB · {tr("Serial")}: {disk.get("serial") or "—"}\n\n'
                f'{tr("ISO")}: {Path(image.path).name}\n'
                f'{tr("Profile")}: {image.profile.family}\n'
                f'{tr("Persistence")}: {persistence_mib / 1024:.1f} GiB')

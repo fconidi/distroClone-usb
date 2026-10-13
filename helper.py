@@ -10,6 +10,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from distroclone_usb.writer import create_usb
+from distroclone_usb.i18n import LANGUAGES, set_language, tr
 
 
 def emit(event, **data):
@@ -24,10 +25,12 @@ def main():
     parser.add_argument('--expected-id', required=True)
     parser.add_argument('--confirm', required=True)
     parser.add_argument('--sha256', required=True)
+    parser.add_argument('--language', choices=LANGUAGES, default='en')
     args = parser.parse_args()
+    set_language(args.language)
     # Permit cleanup on terminal termination; SIGKILL/power loss cannot be handled.
     def stop(signum, frame):
-        raise InterruptedError('Operazione interrotta; la USB può essere incompleta.')
+        raise InterruptedError(tr('Operation interrupted. The USB may be incomplete.'))
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     try:
