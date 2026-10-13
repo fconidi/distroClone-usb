@@ -1,4 +1,4 @@
-.TH DISTROCLONE-USB 1 "October 2026" "distroClone USB 0.1.0" "User Commands"
+.TH DISTROCLONE-USB 1 "October 2026" "distroClone USB 0.2.0" "User Commands"
 .SH NAME
 distroclone-usb \- create a persistent live USB from a live ISO
 .SH SYNOPSIS
@@ -9,6 +9,12 @@ Launch the GTK desktop to select a live ISO, a USB disk and persistence space.
 The selected USB is erased after an explicit confirmation and administrative
 authentication. Internal, mounted, read-only and in-use disks are rejected.
 The original ISO is stored intact on ext4; a separate ext4 volume stores changes.
+.SH SHARED FILES AND ENCRYPTION
+New USBs expose Shared in the live user's home and at /Shared.
+Choose unencrypted creation, encrypted persistence and Shared, or full encryption
+including the ISO. Encryption currently requires a compatible Debian Live or
+SysLinuxOS initramfs. Full mode leaves minimal boot code readable, uses a US boot
+keyboard and asks separately in GRUB and Linux. Existing USBs are not upgraded.
 .SH OPTIONS
 .TP
 .BI "--inspect " ISO
@@ -33,7 +39,7 @@ Check required executables and GRUB platform modules.
 Print the application version.
 .SH LIMITATIONS
 Supports recognized x86-64 Debian live-boot and Ubuntu/Linux Mint casper desktop
-images. MX/antiX is recognized but not supported in version 0.1.
+images. MX/antiX is recognized but not supported.
 Generated UEFI loaders are unsigned: disable Secure Boot.
 .SH AUTHOR
 Franco Conidi <fconidi@gmail.com>

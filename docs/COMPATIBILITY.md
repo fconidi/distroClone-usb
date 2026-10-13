@@ -1,6 +1,6 @@
 # Compatibility
 
-Version 0.1.0 implements profiles, not a blanket promise for every Debian derivative.
+Version 0.2.0 implements profiles, not a blanket promise for every Debian derivative.
 
 | ISO family | Implementation | Verification |
 |---|---|---|
@@ -8,13 +8,16 @@ Version 0.1.0 implements profiles, not a blanket promise for every Debian deriva
 | Ubuntu desktop / recognized Ubuntu flavors | casper, iso-scan/filename, writable since Ubuntu 20.04; casper-rw for earlier releases | Synthetic ISO/profile tests; real distribution boot pending |
 | Linux Mint desktop | casper, writable since Mint 20; casper-rw for earlier releases | Profile parsing implemented; real distribution boot pending |
 | Other Debian live-boot derivatives | Same Debian profile when ISO structure and boot entry match | Must validate each image/version |
-| MX / antiX | Recognized explicitly | Creation rejected in 0.1 |
+| MX / antiX | Recognized explicitly | Creation rejected |
 | Installer-only / Ubuntu Server | Unsupported | Creation rejected |
 | ARM, IA32-only UEFI, Secure Boot | Unsupported | Creation rejected or firmware requirement documented |
 
 The host requires GRUB i386-pc and x86_64-efi modules. An amd64 Debian/Ubuntu host
 is the intended platform. No firmware NVRAM entries or host bootloaders are changed.
-Persistence is unencrypted in 0.1. Choose its size before creation; resizing and
+Optional LUKS2 encryption is available for compatible Debian Live / SysLinuxOS
+images; casper encryption remains rejected. See ENCRYPTION.md for required
+initramfs capabilities, PBKDF2/Argon2id boundaries and boot requirements.
+Choose persistence size before creation; resizing and
 multi-ISO menus are outside this version.
 
 References:

@@ -10,11 +10,11 @@ desktop ISO. Companion to **distroClone** (ISO creation) and
 
 ```bash
 bash build-deb.sh
-sudo apt install ./dist/distroclone-usb_0.1.0_all.deb
+sudo apt install ./dist/distroclone-usb_0.2.0_all.deb
 distroclone-usb
 ```
 
-Choose an ISO, select a USB drive, set persistence space in GiB, then click
+Choose an ISO, select a USB drive, set persistence space in GiB and choose an encryption mode, then click
 **Create USB**. Check the disk model, capacity and serial number, type its device
 name and authenticate. **All existing data on that drive is erased.**
 Mounted desktop volumes can be unmounted with the dedicated button. Other mounts,
@@ -25,9 +25,19 @@ normal user; only the fixed writer helper runs as administrator.
 The boot menu provides persistent, temporary and safe-graphics sessions.
 Changes to applications, settings and files persist; a live USB is not a full
 installation, and kernel/initramfs upgrades are not guaranteed to take effect.
-Version 0.1 creates an **unsigned x86-64 UEFI** loader and a **Legacy BIOS** loader.
+The tool creates an **unsigned x86-64 UEFI** loader and a **Legacy BIOS** loader.
 **Disable Secure Boot** to use the generated USB. See
 [compatibility](docs/COMPATIBILITY.md) for implemented and verified combinations.
+
+## Shared files and optional encryption
+
+New USBs expose **Shared** in the live user's home and at `/Shared`. Copy portable
+files into `Shared` on the persistence volume from another Linux system.
+Choose no encryption, encrypted persistence/Shared, or full encryption including
+the ISO. Encryption initially supports verified Debian Live / SysLinuxOS images;
+casper encryption is rejected. Full encryption keeps minimal boot code readable,
+uses a US boot keyboard and asks separately in GRUB and Linux. Existing USBs are
+not upgraded in place. See [security and usage details](docs/ENCRYPTION.md).
 
 ## Read-only commands
 
