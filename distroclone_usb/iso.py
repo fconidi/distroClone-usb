@@ -108,9 +108,13 @@ def inspect_fd(fd, path, uid=None, progress=None):
         for index, source in enumerate(paths):
             dest = Path(folder) / str(index)
             run('-osirrox', 'on', '-extract', source, str(dest))
-            if dest.is_symlink() or not dest.is_file() or dest.stat().st_size > 1024 * 1024:
-                raise UnsupportedISO('Configurazione ISO non valida o troppo grande.')
-            contents[source] = dest.read_text(errors='replace')
+            config_fd = open_iso(str(dest), uid)
+            try:
+                if os.fstat(config_fd).st_size > 1024 * 1024:
+                    raise UnsupportedISO('Configurazione ISO troppo grande.')
+                contents[source] = os.read(config_fd, 1024 * 1024).decode(errors='replace')
+            finally:
+                os.close(config_fd)
     profile = detect_profile(files, [contents[p] for p in configs[:64]],
                              contents.get('/.disk/info', ''))
     return ISOImage(str(Path(path).absolute()), os.fstat(fd).st_size,
