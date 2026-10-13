@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 
+from .i18n import tr
 from . import __version__
 from .devices import device_token, eligible_disks, inventory, mounts, validate_target
 from .iso import inspect_iso
@@ -34,7 +35,7 @@ def main():
             image = inspect_iso(args.plan)
             disk = next((d for d in inventory() if d['name'] == args.device), None)
             if not disk:
-                raise ValueError('Dispositivo non trovato.')
+                raise ValueError(tr('Device not found.'))
             source = os.stat(args.plan).st_dev
             validate_target([disk], args.device, device_token(disk), Path(args.device).name,
                             f'{os.major(source)}:{os.minor(source)}')

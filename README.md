@@ -51,9 +51,12 @@ Never run the GTK desktop as root.
 bash build-deb.sh
 ```
 
-Python standard library plus GTK 3/PyGObject; no pip dependencies. The desktop is
-available in Italian and English, following the session locale. Backend diagnostic
-messages are currently predominantly Italian.
+Python standard library plus GTK 3/PyGObject; no pip dependencies. The interface,
+confirmation dialogs and application diagnostics support **English, Italian,
+Spanish, French and German**. The initial language follows the session locale;
+use the language selector to switch without losing the ISO, disk or size selection.
+External command diagnostics and system authentication dialogs follow their own
+locale. Set `LANGUAGE=it` (or `en`, `es`, `fr`, `de`) to select a startup language.
 
 The original ISO is copied intact to an ext4 data partition, so ISO files larger
 than 4 GiB are supported. A separate ext4 partition stores persistence. GRUB

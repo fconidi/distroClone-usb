@@ -13,6 +13,7 @@ import tempfile
 import time
 import uuid
 
+from .i18n import tr
 from .devices import device_token, inventory, source_device, validate_target, walk
 from .iso import digest_fd, inspect_fd, open_iso
 from .layout import make_layout
@@ -30,7 +31,7 @@ class Runner:
     def run(self, command, *args, input=None):
         binary = shutil.which(command, path=SYSTEM_PATH)
         if not binary:
-            raise RuntimeError(f'Comando mancante: {command}')
+            raise RuntimeError(tr('Command not found: {command}').format(command=command))
         self.emit('log', message=' '.join([command, *map(str, args)]))
         result = subprocess.run([binary, *map(str, args)], input=input,
                                 text=True, capture_output=True,
@@ -47,7 +48,7 @@ def check_dependencies():
         if not Path(f'/usr/lib/grub/{target}/modinfo.sh').is_file():
             missing.append('grub-' + target)
     if missing:
-        raise RuntimeError('Dipendenze mancanti: ' + ', '.join(missing))
+        raise RuntimeError(tr('Missing dependencies: {items}').format(items=', '.join(missing)))
 
 
 def partition_path(device, number):
@@ -71,13 +72,13 @@ def copy_verified(fd, destination, expected, emit):
         stream.flush()
         os.fsync(stream.fileno())
     if digest.hexdigest() != expected or done != total:
-        raise ValueError('La ISO sorgente è cambiata durante la copia. USB incompleta.')
+        raise ValueError(tr('The source ISO changed during copying. USB incomplete.'))
     emit('progress', phase='verify', fraction=0)
     verify_fd = os.open(destination, os.O_RDONLY | os.O_NOFOLLOW)
     try:
         if digest_fd(verify_fd, lambda done, size: emit(
                 'progress', phase='verify', fraction=done / size)) != expected:
-            raise ValueError('Verifica SHA-256 della copia USB fallita.')
+            raise ValueError(tr('USB copy SHA-256 verification failed.'))
     finally:
         os.close(verify_fd)
 
@@ -99,18 +100,18 @@ def mount_volumes(device, folder, runner):
             except (RuntimeError, subprocess.SubprocessError) as error:
                 cleanup_errors.append(str(error))
         if cleanup_errors:
-            raise RuntimeError('Impossibile smontare tutti i volumi: ' + '; '.join(cleanup_errors))
+            raise RuntimeError(tr('Unable to unmount all volumes: {details}').format(details='; '.join(cleanup_errors)))
 
 
 def assert_same_device(device, expected):
     disk = next((d for d in inventory() if d['name'] == device), None)
     if disk is None or device_token(disk) != expected:
-        raise ValueError('Il dispositivo USB è stato scollegato o sostituito.')
+        raise ValueError(tr('The USB device was disconnected or replaced.'))
     info = os.stat(device, follow_symlinks=False)
     if not stat.S_ISBLK(info.st_mode):
-        raise ValueError('Il dispositivo deve essere un nodo a blocchi reale, senza collegamenti.')
+        raise ValueError(tr('The device must be a real block node, without symbolic links.'))
     if f'{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}' != disk['maj:min']:
-        raise ValueError('Identità del nodo a blocchi cambiata.')
+        raise ValueError(tr('Block device node identity changed.'))
     return disk
 
 
@@ -120,7 +121,7 @@ def fresh_target(device, expected, confirmation, fd):
     for node in walk(disk):
         holders = Path('/sys/class/block') / Path(node['name']).name / 'holders'
         if holders.exists() and any(holders.iterdir()):
-            raise ValueError('Il disco contiene volumi ancora in uso.')
+            raise ValueError(tr('The disk still contains volumes in use.'))
     return disk
 
 
@@ -142,9 +143,9 @@ def install_boot(profile, paths, data_label, persistence_label, runner):
 
 def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid, emit):
     if os.geteuid() != 0:
-        raise PermissionError('La creazione USB richiede autorizzazione amministrativa.')
+        raise PermissionError(tr('Creating a USB requires administrative authorization.'))
     if not re.fullmatch(r'[a-f0-9]{64}', sha256):
-        raise ValueError('Digest ISO non valido.')
+        raise ValueError(tr('Invalid ISO digest.'))
     check_dependencies()
     runner = Runner(emit)
     fd = open_iso(iso, uid)
@@ -155,13 +156,13 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         lock_info = os.fstat(lock_fd)
         if lock_info.st_uid != 0 or not stat.S_ISREG(lock_info.st_mode) or lock_info.st_nlink != 1:
-            raise ValueError('File di blocco non valido.')
+            raise ValueError(tr('Invalid lock file.'))
         fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         emit('progress', phase='inspect', fraction=0)
         image = inspect_fd(fd, iso, uid, lambda done, size: emit(
             'progress', phase='inspect', fraction=done / size))
         if image.sha256 != sha256:
-            raise ValueError('La ISO è cambiata dopo la selezione. Nessuna scrittura eseguita.')
+            raise ValueError(tr('The ISO changed after selection. No data was written.'))
         sector_size = int(runner.run('blockdev', '--getss', device))
         layout = make_layout(disk['size'], image.size, persistence_mib, sector_size)
         folder = Path(tempfile.mkdtemp(prefix='distroclone-usb-'))
@@ -177,7 +178,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         deadline = time.monotonic() + 10
         while not all(Path(partition_path(device, n)).exists() for n in (1, 2, 3, 4)):
             if time.monotonic() > deadline:
-                raise RuntimeError('Le nuove partizioni USB non sono disponibili.')
+                raise RuntimeError(tr('The new USB partitions are unavailable.'))
             time.sleep(.2)
         for number, label, filesystem in ((2, 'DCUSB-EFI', 'vfat'),
                                            (3, data_label, 'ext4'), (4, persistence_label, 'ext4')):
@@ -197,7 +198,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
             assert_same_device(device, expected)
             runner.run('grub-install', '--target=i386-pc', '--no-floppy', '--recheck',
                        '--boot-directory=' + str(paths['data'] / 'boot'), device)
-        emit('done', message='USB creata e verificata. Volumi smontati.', sha256=sha256)
+        emit('done', message=tr('USB created and verified. Volumes unmounted.'), sha256=sha256)
     finally:
         os.close(fd)
         if lock_fd is not None:

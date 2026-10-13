@@ -9,6 +9,7 @@ import stat
 import subprocess
 import tempfile
 
+from .i18n import tr
 from .profiles import Profile, UnsupportedISO, detect_profile
 
 
@@ -55,7 +56,7 @@ def open_iso(path, uid=None):
             os.setgroups(groups)
     if not stat.S_ISREG(os.fstat(fd).st_mode):
         os.close(fd)
-        raise ValueError('La ISO deve essere un file regolare.')
+        raise ValueError(tr('The ISO must be a regular file.'))
     return fd
 
 
@@ -80,9 +81,9 @@ def inspect_fd(fd, path, uid=None, progress=None):
                                 env={'PATH': '/usr/bin:/bin', 'LC_ALL': 'C'},
                                 capture_output=True, text=True, timeout=120)
         if result.returncode:
-            raise UnsupportedISO('Impossibile leggere la ISO: ' + result.stderr[-1200:])
+            raise UnsupportedISO(tr('Unable to read ISO: {details}').format(details=result.stderr[-1200:]))
         if len(result.stdout) > 8 * 1024 * 1024:
-            raise UnsupportedISO('Indice ISO troppo grande.')
+            raise UnsupportedISO(tr('ISO index is too large.'))
         return result.stdout
 
     listing = run('-find', '/', '-maxdepth', '6', '-exec', 'echo', '--')
@@ -95,7 +96,7 @@ def inspect_fd(fd, path, uid=None, progress=None):
         if len(parsed) == 1 and parsed[0].startswith('/'):
             files.add(parsed[0])
     if len(files) > 50000:
-        raise UnsupportedISO('Troppi file nella ISO.')
+        raise UnsupportedISO(tr('Too many files in the ISO.'))
     configs = sorted(p for p in files if p.endswith('.cfg') and
                      p.startswith(('/boot/grub/', '/isolinux/', '/syslinux/')))
     configs.sort(key=lambda p: (p != '/boot/grub/grub.cfg', p))
@@ -111,7 +112,7 @@ def inspect_fd(fd, path, uid=None, progress=None):
             config_fd = open_iso(str(dest), uid)
             try:
                 if os.fstat(config_fd).st_size > 1024 * 1024:
-                    raise UnsupportedISO('Configurazione ISO troppo grande.')
+                    raise UnsupportedISO(tr('ISO configuration is too large.'))
                 contents[source] = os.read(config_fd, 1024 * 1024).decode(errors='replace')
             finally:
                 os.close(config_fd)

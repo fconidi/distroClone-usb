@@ -12,7 +12,7 @@ from gi.repository import Gtk, Gdk, GLib
 
 from .devices import device_token, eligible_disks, inventory, mounts, validate_target
 from .gui_widgets import Form, asset_path, confirm_creation
-from .i18n import tr
+from .i18n import get_language, set_language, tr
 from .iso import inspect_iso
 from .layout import make_layout
 
@@ -30,6 +30,11 @@ class Window(Gtk.ApplicationWindow):
         self.set_default_size(760, 740)
         self.set_icon_from_file(str(asset_path()))
         self.image, self.disks, self.busy, self.writing = None, [], False, False
+        self.build_form()
+        self.connect('delete-event', self.close_requested)
+        self.refresh()
+
+    def build_form(self):
         self.form = Form()
         self.add(self.form)
         self.form.iso.connect('file-set', self.choose_iso)
@@ -38,8 +43,34 @@ class Window(Gtk.ApplicationWindow):
         self.form.devices.connect('changed', self.selection_changed)
         self.form.persistence.connect('value-changed', self.selection_changed)
         self.form.create.connect('clicked', self.create)
-        self.connect('delete-event', self.close_requested)
+        self.form.language.connect('changed', self.change_language)
+
+    def change_language(self, widget):
+        code = widget.get_active_id()
+        if not code or code == get_language() or self.busy:
+            return
+        disk = self.selected()
+        selected = disk['name'] if disk else None
+        filename, size = self.form.iso.get_filename(), self.form.persistence.get_value()
+        buffer = self.form.log.get_buffer()
+        log = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
+        set_language(code)
+        previous = self.form
+        self.remove(previous)
+        previous.destroy()
+        self.build_form()
+        self.form.persistence.set_value(size)
+        if filename:
+            self.form.iso.set_filename(filename)
         self.refresh()
+        for index, item in enumerate(self.disks):
+            if item['name'] == selected:
+                self.form.devices.set_active(index)
+                break
+        if self.image:
+            self.iso_ready(self.image, None)
+        self.form.log.get_buffer().set_text(log)
+        self.show_all()
 
     def append_log(self, text):
         buffer = self.form.log.get_buffer()
@@ -55,7 +86,7 @@ class Window(Gtk.ApplicationWindow):
     def set_busy(self, busy):
         self.busy = busy
         for widget in (self.form.iso, self.form.devices, self.form.refresh,
-                       self.form.persistence, self.form.unmount):
+                       self.form.persistence, self.form.unmount, self.form.language):
             widget.set_sensitive(not busy)
         self.selection_changed()
 
@@ -74,7 +105,7 @@ class Window(Gtk.ApplicationWindow):
                 validate_target([disk], disk['name'], device_token(disk), Path(disk['name']).name)
                 make_layout(disk['size'], self.image.size, self.persistence_mib())
                 valid = True
-                self.form.device_info.set_text(tr('USB ready') + f' · {self.persistence_mib()/1024:.1f} GiB persistence')
+                self.form.device_info.set_text(tr('USB ready') + f' · {self.persistence_mib()/1024:.1f} GiB · ' + tr('Persistence'))
             except ValueError as error:
                 self.form.device_info.set_text(str(error))
         self.form.create.set_sensitive(valid)
@@ -134,7 +165,7 @@ class Window(Gtk.ApplicationWindow):
         # Do not offer unmounting system mounts even on a USB-root host.
         volumes = mounts(disk)
         if any(not mount.startswith(('/media/', '/run/media/')) for _, mount in volumes):
-            self.error('Smontare manualmente i volumi non gestiti dal desktop; nessuna operazione eseguita.')
+            self.error(tr('Unmount non-desktop volumes manually. No operation performed.'))
             return
         self.set_busy(True)
         def work():
@@ -167,7 +198,8 @@ class Window(Gtk.ApplicationWindow):
             return
         command = ['/usr/bin/pkexec', HELPER, '--iso', image.path, '--device', disk['name'],
                    '--persistence-mib', str(size), '--expected-id', device_token(disk),
-                   '--confirm', Path(disk['name']).name, '--sha256', image.sha256]
+                   '--confirm', Path(disk['name']).name, '--sha256', image.sha256,
+                   '--language', get_language()]
         self.writing = True
         self.set_busy(True)
         self.form.progress.set_fraction(0)

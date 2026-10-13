@@ -6,8 +6,14 @@
   <action id="com.syslinuxos.distroclone-usb.create">
     <description>Create a persistent live USB</description>
     <description xml:lang="it">Crea una USB live persistente</description>
+    <description xml:lang="es">Crear un USB live persistente</description>
+    <description xml:lang="fr">Créer une clé USB live persistante</description>
+    <description xml:lang="de">Persistenten Live-USB erstellen</description>
     <message>Authentication is required to erase the selected USB and create a persistent live system.</message>
     <message xml:lang="it">Autenticazione richiesta per cancellare la USB selezionata e creare un sistema live persistente.</message>
+    <message xml:lang="es">Se requiere autenticación para borrar el USB seleccionado y crear un sistema live persistente.</message>
+    <message xml:lang="fr">Une authentification est requise pour effacer la clé USB sélectionnée et créer un système live persistant.</message>
+    <message xml:lang="de">Zum Löschen des ausgewählten USB-Laufwerks und Erstellen eines persistenten Live-Systems ist eine Authentifizierung erforderlich.</message>
     <icon_name>distroclone-usb</icon_name>
     <defaults>
       <allow_any>no</allow_any>

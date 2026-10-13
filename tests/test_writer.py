@@ -10,7 +10,7 @@ from distroclone_usb.writer import Runner, assert_same_device, copy_verified, mo
 class WriterTest(unittest.TestCase):
     def test_hotplug_replacement_aborts_before_boot_sector_write(self):
         with patch('distroclone_usb.writer.inventory', return_value=[]):
-            with self.assertRaisesRegex(ValueError, 'scollegato'):
+            with self.assertRaisesRegex(ValueError, 'disconnected'):
                 assert_same_device('/dev/sdz', 'a' * 64)
 
     def test_nonzero_command_stops_operation(self):
@@ -68,7 +68,7 @@ class WriterTest(unittest.TestCase):
                     raise RuntimeError('busy')
 
         with tempfile.TemporaryDirectory() as folder:
-            with self.assertRaisesRegex(RuntimeError, 'smontare'):
+            with self.assertRaisesRegex(RuntimeError, 'unmount'):
                 with mount_volumes('/dev/sdb', Path(folder), FakeRunner()):
                     pass
             self.assertTrue((Path(folder) / 'data').exists())
