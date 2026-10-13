@@ -22,6 +22,8 @@ def inventory():
     for disk in disks:
         sequence = Path('/sys/class/block') / Path(disk['name']).name / 'diskseq'
         disk['diskseq'] = sequence.read_text().strip() if sequence.exists() else ''
+        sector = Path('/sys/class/block') / Path(disk['name']).name / 'queue/logical_block_size'
+        disk['sector_size'] = int(sector.read_text()) if sector.exists() else 512
     return disks
 
 

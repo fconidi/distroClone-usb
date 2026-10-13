@@ -4,10 +4,15 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from distroclone_usb.writer import Runner, copy_verified, mount_volumes, partition_path
+from distroclone_usb.writer import Runner, assert_same_device, copy_verified, mount_volumes, partition_path
 
 
 class WriterTest(unittest.TestCase):
+    def test_hotplug_replacement_aborts_before_boot_sector_write(self):
+        with patch('distroclone_usb.writer.inventory', return_value=[]):
+            with self.assertRaisesRegex(ValueError, 'scollegato'):
+                assert_same_device('/dev/sdz', 'a' * 64)
+
     def test_nonzero_command_stops_operation(self):
         with self.assertRaises(RuntimeError):
             Runner(lambda *a, **k: None).run('/usr/bin/false')

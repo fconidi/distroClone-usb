@@ -13,7 +13,7 @@ import tempfile
 import time
 import uuid
 
-from .devices import inventory, source_device, validate_target, walk
+from .devices import device_token, inventory, source_device, validate_target, walk
 from .iso import digest_fd, inspect_fd, open_iso
 from .layout import make_layout
 from .profiles import grub_config
@@ -102,13 +102,21 @@ def mount_volumes(device, folder, runner):
             raise RuntimeError('Impossibile smontare tutti i volumi: ' + '; '.join(cleanup_errors))
 
 
-def fresh_target(device, expected, confirmation, fd):
-    disk = validate_target(inventory(), device, expected, confirmation, source_device(fd))
+def assert_same_device(device, expected):
+    disk = next((d for d in inventory() if d['name'] == device), None)
+    if disk is None or device_token(disk) != expected:
+        raise ValueError('Il dispositivo USB è stato scollegato o sostituito.')
     info = os.stat(device, follow_symlinks=False)
     if not stat.S_ISBLK(info.st_mode):
         raise ValueError('Il dispositivo deve essere un nodo a blocchi reale, senza collegamenti.')
     if f'{os.major(info.st_rdev)}:{os.minor(info.st_rdev)}' != disk['maj:min']:
         raise ValueError('Identità del nodo a blocchi cambiata.')
+    return disk
+
+
+def fresh_target(device, expected, confirmation, fd):
+    disk = assert_same_device(device, expected)
+    validate_target([disk], device, expected, confirmation, source_device(fd))
     for node in walk(disk):
         holders = Path('/sys/class/block') / Path(node['name']).name / 'holders'
         if holders.exists() and any(holders.iterdir()):
@@ -141,7 +149,6 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
     runner = Runner(emit)
     fd = open_iso(iso, uid)
     lock_fd, folder = None, None
-    safe_cleanup = True
     try:
         disk = fresh_target(device, expected, confirmation, fd)
         lock_path = '/run/lock/distroclone-usb-' + disk['maj:min'].replace(':', '-')
@@ -182,19 +189,18 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
                 # Disable orphan_file for live kernels predating ext4 feature support.
                 runner.run('mkfs.ext4', '-F', '-m', '0', '-O', '^orphan_file', '-L', label, target)
         fresh_target(device, expected, confirmation, fd)
-        safe_cleanup = False
         with mount_volumes(device, folder, runner) as paths:
             (paths['data'] / 'distroclone').mkdir()
             copy_verified(fd, paths['data'] / 'distroclone/live.iso', sha256, emit)
             emit('progress', phase='boot', fraction=0)
             install_boot(image.profile, paths, data_label, persistence_label, runner)
+            assert_same_device(device, expected)
             runner.run('grub-install', '--target=i386-pc', '--no-floppy', '--recheck',
                        '--boot-directory=' + str(paths['data'] / 'boot'), device)
-        safe_cleanup = True
         emit('done', message='USB creata e verificata. Volumi smontati.', sha256=sha256)
     finally:
         os.close(fd)
         if lock_fd is not None:
             os.close(lock_fd)
-        if folder and safe_cleanup:
+        if folder and not any(os.path.ismount(folder / name) for name in ('efi', 'data', 'persist')):
             shutil.rmtree(folder)

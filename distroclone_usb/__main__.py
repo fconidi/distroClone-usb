@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -34,8 +35,10 @@ def main():
             disk = next((d for d in inventory() if d['name'] == args.device), None)
             if not disk:
                 raise ValueError('Dispositivo non trovato.')
-            validate_target([disk], args.device, device_token(disk), Path(args.device).name)
-            layout = make_layout(disk['size'], image.size, args.persistence_mib)
+            source = os.stat(args.plan).st_dev
+            validate_target([disk], args.device, device_token(disk), Path(args.device).name,
+                            f'{os.major(source)}:{os.minor(source)}')
+            layout = make_layout(disk['size'], image.size, args.persistence_mib, disk['sector_size'])
             print(json.dumps({'iso': image.to_dict(), 'device': disk,
                               'expected_id': device_token(disk), 'layout': layout.to_dict()}, indent=2))
         elif args.check_dependencies:

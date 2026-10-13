@@ -24,7 +24,7 @@ SAFE_VALUE = re.compile(r'^[A-Za-z0-9_./,:@+%=\-]+$')
 ARG_KEYS = {'boot', 'username', 'user', 'hostname', 'locales', 'locale',
             'keyboard-layouts', 'keyboard-variants', 'keyboard-model',
             'keyboard-options', 'live-media-path', 'union', 'module',
-            'timezone', 'utc', 'access'}
+            'timezone', 'utc', 'access', 'layerfs-path'}
 ARG_FLAGS = {'quiet', 'splash', 'components', 'config', 'noeject', 'noprompt',
              'noautologin', 'noconfig', 'nonetworking', 'noswap'}
 
@@ -130,9 +130,9 @@ def grub_config(profile, data_label, persistence_label):
     else:
         raise UnsupportedISO('Unknown profile')
     args = ' '.join(profile.arguments)
-    for title, extra in [('Live — persistence', persistent),
-                         ('Live — temporary session', temporary),
-                         ('Live — persistence (safe graphics)', persistent + ' nomodeset')]:
+    for title, extra in [('Live - persistence', persistent),
+                         ('Live - temporary session', temporary),
+                         ('Live - persistence (safe graphics)', persistent + ' nomodeset')]:
         text += [f'menuentry "distroClone USB: {title}" {{',
                  '    loopback loop /distroclone/live.iso',
                  f'    linux (loop){profile.kernel} {args} {base} {extra}',
