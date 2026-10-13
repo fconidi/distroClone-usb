@@ -39,6 +39,8 @@ def main():
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     try:
+        if os.geteuid() != 0:
+            raise PermissionError(tr('Creating a USB requires administrative authorization.'))
         password = read_secret(sys.stdin.buffer) if args.encrypt_mode != 'none' else None
         uid = int(os.environ.get('PKEXEC_UID', os.environ.get('SUDO_UID', os.getuid())))
         create_usb(args.iso, args.device, args.persistence_mib, args.expected_id,

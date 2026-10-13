@@ -57,6 +57,18 @@ def main():
                 window.iso_ready(image, None)
                 window.form.devices.set_active(0)
                 assert window.form.create.get_sensitive()
+                window.form.encryption.set_active_id('all')
+                assert not window.form.create.get_sensitive()
+                window.form.password.set_text('distroClone TEST USB 2026 only')
+                assert not window.form.create.get_sensitive()
+                window.form.confirm_password.set_text('distroClone TEST USB 2026 only')
+                assert window.form.create.get_sensitive()
+                with patch('distroclone_usb.gui.inventory', return_value=[disk]):
+                    window.form.language.set_active_id('de')
+                assert window.form.encryption.get_active_id() == 'all'
+                assert window.form.password.get_text() == ''
+                assert not window.form.create.get_sensitive()
+                window.form.encryption.set_active_id('none')
                 window.form.persistence.set_value(14)
                 assert not window.form.create.get_sensitive()
                 window.form.persistence.set_value(4)

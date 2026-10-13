@@ -10,14 +10,16 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
+from .crypto import validate_encryption
 from .devices import device_token, eligible_disks, inventory, mounts, validate_target
 from .gui_widgets import Form, asset_path, confirm_creation
 from .i18n import get_language, set_language, tr
 from .iso import inspect_iso
 from .layout import make_layout
 
-HELPER = '/usr/lib/distroclone-usb/helper.py'
-PHASES = {'inspect': ('Authentication / validating ISO', 0, .15),
+from .writer_client import HELPER, start_writer
+PHASES = {'inspect': ('Authentication / validating ISO', 0, .05),
+          'erase': ('Clearing previous USB contents', .05, .10),
           'partition': ('Partitioning and formatting', .15, .10),
           'copy': ('Copying ISO', .25, .45),
           'verify': ('Verifying USB copy', .70, .20),
@@ -42,6 +44,9 @@ class Window(Gtk.ApplicationWindow):
         self.form.unmount.connect('clicked', self.unmount)
         self.form.devices.connect('changed', self.selection_changed)
         self.form.persistence.connect('value-changed', self.selection_changed)
+        self.form.encryption.connect('changed', self.security_changed)
+        self.form.password.connect('changed', self.selection_changed)
+        self.form.confirm_password.connect('changed', self.selection_changed)
         self.form.create.connect('clicked', self.create)
         self.form.language.connect('changed', self.change_language)
 
@@ -52,6 +57,7 @@ class Window(Gtk.ApplicationWindow):
         disk = self.selected()
         selected = disk['name'] if disk else None
         filename, size = self.form.iso.get_filename(), self.form.persistence.get_value()
+        mode = self.form.encryption.get_active_id()
         buffer = self.form.log.get_buffer()
         log = buffer.get_text(buffer.get_start_iter(), buffer.get_end_iter(), True)
         set_language(code)
@@ -60,6 +66,7 @@ class Window(Gtk.ApplicationWindow):
         previous.destroy()
         self.build_form()
         self.form.persistence.set_value(size)
+        self.form.encryption.set_active_id(mode)
         if filename:
             self.form.iso.set_filename(filename)
         self.refresh()
@@ -70,6 +77,8 @@ class Window(Gtk.ApplicationWindow):
         if self.image:
             self.iso_ready(self.image, None)
         self.form.log.get_buffer().set_text(log)
+        if mode != "none":
+            self.form.status.set_text(tr("Re-enter the passphrase after changing language."))
         self.show_all()
 
     def append_log(self, text):
@@ -86,8 +95,26 @@ class Window(Gtk.ApplicationWindow):
     def set_busy(self, busy):
         self.busy = busy
         for widget in (self.form.iso, self.form.devices, self.form.refresh,
-                       self.form.persistence, self.form.unmount, self.form.language):
+                       self.form.persistence, self.form.unmount, self.form.language, self.form.encryption):
             widget.set_sensitive(not busy)
+        self.security_changed()
+
+    def security_changed(self, *args):
+        mode = self.form.encryption.get_active_id() or "none"
+        for widget in (self.form.password, self.form.confirm_password):
+            widget.set_sensitive(mode != "none" and not self.busy)
+        if mode == "none":
+            self.form.password.set_text("")
+            self.form.confirm_password.set_text("")
+        help_text = {
+            "none": 'No encryption: ISO, shared files and system changes remain readable.',
+            "persistence": 'Encrypted persistence: shared files and system changes require a password; ISO remains readable.',
+            "all": 'Full encryption: ISO and private data are encrypted; boot code remains readable. US boot keyboard. GRUB and Linux ask separately.'}
+        text = tr(help_text[mode])
+        if mode != "none":
+            text += "\n" + tr('Use a passphrase of at least {minimum} characters.').format(minimum=20 if mode == "all" else 12)
+            text += "\n" + tr('Encrypted creation clears the entire USB first and may take longer. Forgotten passphrases cannot be recovered.')
+        self.form.security_info.set_text(text)
         self.selection_changed()
 
     def selected(self):
@@ -104,6 +131,9 @@ class Window(Gtk.ApplicationWindow):
             try:
                 validate_target([disk], disk['name'], device_token(disk), Path(disk['name']).name)
                 make_layout(disk['size'], self.image.size, self.persistence_mib())
+                validate_encryption(self.image.profile, self.form.encryption.get_active_id(), self.form.password.get_text())
+                if self.form.encryption.get_active_id() != "none" and self.form.password.get_text() != self.form.confirm_password.get_text():
+                    raise ValueError(tr("Passwords do not match."))
                 valid = True
                 self.form.device_info.set_text(tr('USB ready') + f' · {self.persistence_mib()/1024:.1f} GiB · ' + tr('Persistence'))
             except ValueError as error:
@@ -194,20 +224,29 @@ class Window(Gtk.ApplicationWindow):
         if not Path(HELPER).exists():
             self.error(tr('Install the Debian package before creating a USB.'))
             return
-        if not confirm_creation(self, image, disk, size):
+        mode = self.form.encryption.get_active_id()
+        password = self.form.password.get_text() if mode != "none" else None
+        validate_encryption(image.profile, mode, password)
+        if password is not None and password != self.form.confirm_password.get_text():
+            self.error(tr("Passwords do not match."))
             return
-        command = ['/usr/bin/pkexec', HELPER, '--iso', image.path, '--device', disk['name'],
+        if not confirm_creation(self, image, disk, size, mode):
+            return
+        command = ['--iso', image.path, '--device', disk['name'],
                    '--persistence-mib', str(size), '--expected-id', device_token(disk),
                    '--confirm', Path(disk['name']).name, '--sha256', image.sha256,
-                   '--language', get_language()]
+                   '--language', get_language(), '--encrypt-mode', mode]
+        self.form.password.set_text("")
+        self.form.confirm_password.set_text("")
         self.writing = True
         self.set_busy(True)
         self.form.progress.set_fraction(0)
         self.form.status.set_text(tr('Authentication / validating ISO'))
-        def work():
+        def work(password):
             completed = False
             try:
-                process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                process = start_writer(command, password)
+                password = None
                 for line in process.stdout:
                     try:
                         event = json.loads(line)
@@ -221,7 +260,7 @@ class Window(Gtk.ApplicationWindow):
             except Exception as error:
                 GLib.idle_add(self.error, tr('Cannot start the USB writer.') + ' ' + str(error))
                 GLib.idle_add(self.finished, False)
-        threading.Thread(target=work, daemon=True).start()
+        threading.Thread(target=work, args=(password,), daemon=True).start()
 
     def on_event(self, event):
         if event.get('event') == 'progress':
