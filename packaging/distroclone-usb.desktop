@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=distroClone USB
+GenericName=Persistent Live USB Creator
+GenericName[it]=Creatore USB live persistenti
+Comment=Create a bootable USB with persistence from a live ISO
+Comment[it]=Crea una USB avviabile con persistenza da una ISO live
+Exec=distroclone-usb
+Icon=distroclone-usb
+Terminal=false
+Categories=System;
+Keywords=USB;ISO;Live;Persistence;Debian;Ubuntu;
+StartupNotify=true
+StartupWMClass=distroclone-usb

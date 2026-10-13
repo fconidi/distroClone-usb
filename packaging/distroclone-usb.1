@@ -1,0 +1,41 @@
+.TH DISTROCLONE-USB 1 "October 2026" "distroClone USB 0.1.0" "User Commands"
+.SH NAME
+distroclone-usb \- create a persistent live USB from a live ISO
+.SH SYNOPSIS
+.B distroclone-usb
+.RI [ options ]
+.SH DESCRIPTION
+Launch the GTK desktop to select a live ISO, a USB disk and persistence space.
+The selected USB is erased after an explicit confirmation and administrative
+authentication. Internal, mounted, read-only and in-use disks are rejected.
+The original ISO is stored intact on ext4; a separate ext4 volume stores changes.
+.SH OPTIONS
+.TP
+.BI "--inspect " ISO
+Inspect a live ISO and print JSON without writing media.
+.TP
+.B --list-devices
+Print eligible USB/removable devices and their identities as JSON.
+.TP
+.BI "--plan " ISO
+Validate a read-only creation plan. Requires --device.
+.TP
+.BI "--device " DEVICE
+Whole USB disk used for planning, for example /dev/sdb.
+.TP
+.BI "--persistence-mib " SIZE
+Persistence size in MiB for planning; default 4096, minimum 512.
+.TP
+.B --check-dependencies
+Check required executables and GRUB platform modules.
+.TP
+.B --version
+Print the application version.
+.SH LIMITATIONS
+Supports recognized x86-64 Debian live-boot and Ubuntu/Linux Mint casper desktop
+images. MX/antiX is recognized but not supported in version 0.1.
+Generated UEFI loaders are unsigned: disable Secure Boot.
+.SH AUTHOR
+Franco Conidi <fconidi@gmail.com>
+.SH LICENSE
+GNU GPL version 3 or later.
