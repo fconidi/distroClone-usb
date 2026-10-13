@@ -22,6 +22,10 @@ def label(text, style=None):
     return widget
 
 
+MODE_LABELS = {'none': 'No encryption', 'persistence': 'Encrypt persistence and shared files',
+               'all': 'Encrypt ISO, persistence and shared files'}
+
+
 class Form(Gtk.Box):
     def __init__(self):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=14)
@@ -44,17 +48,23 @@ class Form(Gtk.Box):
         header.pack_end(language_box, False, False, 0)
         self.pack_start(header, False, False, 0)
         self.pack_start(Gtk.Separator(), False, False, 0)
-        self.pack_start(label('1. Live ISO', 'heading'), False, False, 0)
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        body_scroll = Gtk.ScrolledWindow()
+        body_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        body_scroll.set_min_content_height(220)
+        body_scroll.add(body)
+        self.pack_start(body_scroll, True, True, 0)
+        body.pack_start(label('1. Live ISO', 'heading'), False, False, 0)
         self.iso = Gtk.FileChooserButton(title=tr('Choose an ISO image'), action=Gtk.FileChooserAction.OPEN)
         image_filter = Gtk.FileFilter()
         image_filter.set_name('ISO (*.iso)')
         image_filter.add_pattern('*.iso')
         image_filter.add_pattern('*.ISO')
         self.iso.add_filter(image_filter)
-        self.pack_start(self.iso, False, False, 0)
+        body.pack_start(self.iso, False, False, 0)
         self.iso_info = label('Choose a Debian Live, SysLinuxOS, Ubuntu or Linux Mint desktop ISO.', 'dim-label')
-        self.pack_start(self.iso_info, False, False, 0)
-        self.pack_start(label('2. USB drive', 'heading'), False, False, 0)
+        body.pack_start(self.iso_info, False, False, 0)
+        body.pack_start(label('2. USB drive', 'heading'), False, False, 0)
         device_row = Gtk.Box(spacing=8)
         self.devices = Gtk.ComboBoxText()
         self.devices.set_hexpand(True)
@@ -62,10 +72,10 @@ class Form(Gtk.Box):
         self.unmount = Gtk.Button(label=tr('Unmount volumes'))
         for widget, expand in ((self.devices, True), (self.refresh, False), (self.unmount, False)):
             device_row.pack_start(widget, expand, expand, 0)
-        self.pack_start(device_row, False, False, 0)
+        body.pack_start(device_row, False, False, 0)
         self.device_info = label('Select a USB drive explicitly.', 'dim-label')
-        self.pack_start(self.device_info, False, False, 0)
-        self.pack_start(label('3. Persistence', 'heading'), False, False, 0)
+        body.pack_start(self.device_info, False, False, 0)
+        body.pack_start(label('3. Persistence', 'heading'), False, False, 0)
         persistence_row = Gtk.Box(spacing=12)
         self.persistence = Gtk.SpinButton.new_with_range(.5, 1024, .5)
         self.persistence.set_digits(1)
@@ -73,7 +83,25 @@ class Form(Gtk.Box):
         self.persistence.set_numeric(True)
         persistence_row.pack_start(self.persistence, False, False, 0)
         persistence_row.pack_start(label('GiB reserved for applications, settings and files.'), True, True, 0)
-        self.pack_start(persistence_row, False, False, 0)
+        body.pack_start(persistence_row, False, False, 0)
+        body.pack_start(label('Shared files are available in the Shared folder in your live home.'), False, False, 0)
+        body.pack_start(label('4. Security', 'heading'), False, False, 0)
+        self.encryption = Gtk.ComboBoxText()
+        for mode, title in MODE_LABELS.items():
+            self.encryption.append(mode, tr(title))
+        self.encryption.set_active_id('none')
+        body.pack_start(self.encryption, False, False, 0)
+        self.password = Gtk.Entry(visibility=False, input_purpose=Gtk.InputPurpose.PASSWORD)
+        self.password.set_max_length(512)
+        self.confirm_password = Gtk.Entry(visibility=False, input_purpose=Gtk.InputPurpose.PASSWORD)
+        self.confirm_password.set_max_length(512)
+        for title, widget in (('Passphrase', self.password), ('Confirm passphrase', self.confirm_password)):
+            body.pack_start(label(title), False, False, 0)
+            widget.get_accessible().set_name(tr(title))
+            body.pack_start(widget, False, False, 0)
+            widget.set_sensitive(False)
+        self.security_info = label('No encryption', 'dim-label')
+        body.pack_start(self.security_info, False, False, 0)
         self.pack_start(label('All existing USB data will be erased. Secure Boot must be disabled.', 'warning-text'), False, False, 0)
         self.status = label('Ready. Choose an ISO and a USB drive.')
         self.pack_start(self.status, False, False, 0)
@@ -90,10 +118,10 @@ class Form(Gtk.Box):
         scroll.add(self.log)
         expander = Gtk.Expander(label=tr('Operation log'))
         expander.add(scroll)
-        self.pack_start(expander, True, True, 0)
+        self.pack_start(expander, False, False, 0)
 
 
-def confirm_creation(parent, image, disk, persistence_mib):
+def confirm_creation(parent, image, disk, persistence_mib, mode="none"):
     name = Path(disk['name']).name
     dialog = Gtk.Dialog(title=tr('Erase and create USB'), transient_for=parent, modal=True)
     dialog.add_button(tr('Cancel'), Gtk.ResponseType.CANCEL)
@@ -108,7 +136,8 @@ def confirm_creation(parent, image, disk, persistence_mib):
                f'{disk["size"] / 1024**3:.1f} GiB · {tr("Serial")}: {disk.get("serial") or "—"}\n\n'
                f'{tr("ISO")}: {Path(image.path).name}\n'
                f'{tr("Profile")}: {image.profile.family}\n'
-               f'{tr("Persistence")}: {persistence_mib / 1024:.1f} GiB')
+               f'{tr("Persistence")}: {persistence_mib / 1024:.1f} GiB\n'
+               f'{tr("Encryption")}: {tr(MODE_LABELS[mode])}')
     content.add(label(summary))
     content.add(label(tr('Type the device name to confirm:') + ' ' + name))
     entry = Gtk.Entry()
