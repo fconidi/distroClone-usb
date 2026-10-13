@@ -60,6 +60,7 @@ class TranslationTest(unittest.TestCase):
                 path.write_text(grub_config(profile, 'dcusb123', 'dc-p123', 'all',
                     '12345678-1234-1234-1234-123456789abc',
                     '87654321-4321-4321-4321-cba987654321'))
+                self.assertIn('dcusb.lang=' + code, path.read_text())
                 result = subprocess.run(['grub-script-check', str(path)], capture_output=True)
                 self.assertEqual(result.returncode, 0, (code, result.stderr))
 

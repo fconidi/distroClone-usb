@@ -94,6 +94,9 @@ def main():
                 process.wait(timeout=10)
         if marker not in transcript:
             raise AssertionError(f'Boot/persistence probe failed; see {log}')
+        if args.reject_password and any(value in transcript for value in
+                (b'DCUSB_WRITE_OK', b'DCUSB_PERSIST_OK', b'DCUSB_SHARED_OK')):
+            raise AssertionError('Failed unlock reached a persistent session')
         if args.shared and not args.reject_password and b'DCUSB_SHARED_OK' not in transcript:
             raise AssertionError(f'Shared folder probe failed; see {log}')
         print(f'PASS: {args.firmware} / {args.mode}: {marker.decode()}')
