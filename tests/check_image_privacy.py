@@ -22,7 +22,7 @@ def main():
             stream.seek(table['partitions'][number - 1]['start'] * sectors)
             assert stream.read(6) == b'LUKS\xba\xbe', ('missing LUKS header', number)
         stream.seek(0)
-        needles = (b'distroClone TEST USB 2026 only', b'DCUSB_HOST_SHARED_MARKER', b'persisted-20261013')
+        needles = (b'Abcd1234Efgh', b'distroClone TEST USB 2026 only', b'DCUSB_HOST_SHARED_MARKER', b'persisted-20261013')
         previous = b''
         while chunk := stream.read(8 * 1024 * 1024):
             data = previous + chunk

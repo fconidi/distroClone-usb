@@ -14,8 +14,9 @@ import time
 import uuid
 
 from .i18n import tr
+from .cancellation import defer_cancellation
 from .devices import device_token, inventory, mounts, source_device, validate_target, walk
-from .crypto import CryptoVolumes, clear_logical_sectors, encryption_modules, unlock_search, validate_encryption
+from .crypto import CryptoVolumes, encryption_modules, unlock_search, validate_encryption
 from .encrypted_boot import check_initrd_capabilities, write_supplemental_initrd
 from .iso import digest_fd, inspect_fd, open_iso
 from .layout import make_layout
@@ -41,6 +42,7 @@ class Runner:
         result = subprocess.run([binary, *map(str, args)],
                                 input=bytes(input_secret) if input_secret is not None else input,
                                 text=input_secret is None, capture_output=True,
+                                stdin=subprocess.DEVNULL if input is None and input_secret is None else None,
                                 env={'PATH': SYSTEM_PATH, 'LC_ALL': 'C', 'HOME': '/root'},
                                 timeout=600, check=False)
         stdout = result.stdout.decode(errors='replace') if isinstance(result.stdout, bytes) else result.stdout
@@ -100,17 +102,24 @@ def mount_volumes(device, folder, runner, mapped=None):
             path = folder / name
             path.mkdir(mode=0o700)
             target = mapped[number] if mapped else partition_path(device, number)
-            runner.run('mount', '-o', 'nosuid,nodev,noexec', target, str(path))
-            mounted.append(path)
+            try:
+                runner.run('mount', '-o', 'nosuid,nodev,noexec', target, str(path))
+                mounted.append(path)
+            except BaseException:
+                # The mount syscall may have succeeded before cancellation.
+                if path not in mounted and os.path.ismount(path):
+                    mounted.append(path)
+                raise
         yield {name: folder / name for name in ('efi', 'data', 'persist')}
     finally:
-        for path in reversed(mounted):
-            try:
-                runner.run('umount', str(path))
-            except (RuntimeError, subprocess.SubprocessError) as error:
-                cleanup_errors.append(str(error))
-        if cleanup_errors:
-            raise RuntimeError(tr('Unable to unmount all volumes: {details}').format(details='; '.join(cleanup_errors)))
+        with defer_cancellation():
+            for path in reversed(mounted):
+                try:
+                    runner.run('umount', str(path))
+                except (RuntimeError, subprocess.SubprocessError) as error:
+                    cleanup_errors.append(str(error))
+            if cleanup_errors:
+                raise RuntimeError(tr('Unable to unmount all volumes: {details}').format(details='; '.join(cleanup_errors)))
 
 
 def assert_same_device(device, expected):
@@ -191,17 +200,6 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         data_label = 'dcusb-' + token
         persistence_label = ('dc-p-' + token if image.profile.family == 'debian'
                              else image.profile.persistence_label)
-        fresh_target(device, expected, confirmation, fd)
-        if mode != 'none':
-            wipe_fd = os.open(device, os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
-            try:
-                actual = os.fstat(wipe_fd)
-                if not stat.S_ISBLK(actual.st_mode) or f'{os.major(actual.st_rdev)}:{os.minor(actual.st_rdev)}' != disk['maj:min']:
-                    raise ValueError(tr('Block device node identity changed.'))
-                assert_same_device(device, expected)
-                clear_logical_sectors(wipe_fd, disk['size'], emit)
-            finally:
-                os.close(wipe_fd)
         fresh_target(device, expected, confirmation, fd)
         emit('progress', phase='partition', fraction=0)
         runner.run('sfdisk', '--wipe', 'always', '--wipe-partitions', 'always',

@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from distroclone_usb.crypto import CryptoVolumes, clear_logical_sectors, encryption_modules, read_secret, validate_encryption
+from distroclone_usb.crypto import CryptoVolumes, encryption_modules, read_secret, validate_encryption
 from distroclone_usb.encrypted_boot import write_supplemental_initrd
 from distroclone_usb.profiles import Profile, grub_config
 from distroclone_usb.writer import Runner
@@ -30,14 +30,6 @@ class CryptoTest(unittest.TestCase):
             self.assertIn(b'/scripts/init-premount/original-test-script', contents)
             self.assertIn(b'/scripts/init-premount/distroclone-usb-unlock \"$@\"', contents)
 
-    def test_logical_sector_initialization_removes_old_plaintext(self):
-        with tempfile.TemporaryFile() as file:
-            file.write(b'OLD PRIVATE FILE' * 1024)
-            file.flush()
-            size = file.tell()
-            clear_logical_sectors(file.fileno(), size, lambda *a, **k: None)
-            file.seek(0)
-            self.assertEqual(file.read(), bytes(size))
     def test_password_rules_and_unsupported_profiles(self):
         validate_encryption(DEBIAN, 'none', None)
         validate_encryption(DEBIAN, 'persistence', 'long-test-passphrase')
@@ -48,6 +40,12 @@ class CryptoTest(unittest.TestCase):
                 validate_encryption(DEBIAN, mode, password)
         with self.assertRaises(ValueError):
             validate_encryption(Profile('casper', 'Ubuntu', '', (), (), 'writable'), 'all', 'a'*24)
+
+    def test_both_encrypted_modes_accept_twelve_and_reject_eleven_characters(self):
+        for mode in ('persistence', 'all'):
+            validate_encryption(DEBIAN, mode, 'Abcd1234Efgh')
+            with self.assertRaises(ValueError):
+                validate_encryption(DEBIAN, mode, 'Abcd1234Efg')
 
     def test_secret_transport_is_bounded_and_rejects_extra_fields(self):
         self.assertEqual(read_secret(io.BytesIO(b'{"password":"test only phrase"}\n')), 'test only phrase')
@@ -128,3 +126,17 @@ class CryptoTest(unittest.TestCase):
             (extracted / 'scripts').symlink_to(root)
             with self.assertRaises(OSError):
                 read_order(extracted, 'scripts/init-premount/ORDER')
+
+    def test_cancelled_open_closes_a_mapping_created_before_command_exit(self):
+        from distroclone_usb.cancellation import CancellationRequested
+        calls = []
+        class FakeRunner:
+            def run(self, command, *args, **kwargs):
+                calls.append(args)
+                if args[0] == 'open':
+                    raise CancellationRequested('test cancellation')
+        with patch('distroclone_usb.crypto.Path.exists', side_effect=[False, True]):
+            with self.assertRaises(CancellationRequested):
+                with CryptoVolumes(FakeRunner(), 'Abcd1234Efgh', 'test') as volumes:
+                    volumes.format_open('/dev/sdz3', 'data', 'pbkdf2')
+        self.assertEqual(calls[-1], ('close', 'dcusb-test-data'))

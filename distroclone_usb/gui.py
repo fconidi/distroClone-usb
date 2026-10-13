@@ -18,9 +18,8 @@ from .i18n import get_language, set_language, tr
 from .iso import inspect_iso
 from .layout import make_layout
 
-from .writer_client import HELPER, start_writer
-PHASES = {'inspect': ('Authentication / validating ISO', 0, .05),
-          'erase': ('Clearing previous USB contents', .05, .10),
+from .writer_client import HELPER, request_cancel, start_writer
+PHASES = {'inspect': ('Authentication / validating ISO', 0, .15),
           'partition': ('Partitioning and formatting', .15, .10),
           'copy': ('Copying ISO', .25, .45),
           'verify': ('Verifying USB copy', .70, .20),
@@ -34,6 +33,9 @@ class Window(Gtk.ApplicationWindow):
         self.set_default_size(760, 740)
         self.set_icon_from_file(str(asset_path()))
         self.image, self.disks, self.busy, self.writing = None, [], False, False
+        self.writer_process = None
+        self.writer_error = False
+        self.cancel_requested = False
         self.build_form()
         self.connect('delete-event', self.close_requested)
         self.refresh()
@@ -50,6 +52,7 @@ class Window(Gtk.ApplicationWindow):
         self.form.password.connect('changed', self.selection_changed)
         self.form.confirm_password.connect('changed', self.selection_changed)
         self.form.create.connect('clicked', self.create)
+        self.form.cancel.connect('clicked', self.cancel_creation)
         self.form.language.connect('changed', self.change_language)
 
     def change_language(self, widget):
@@ -99,6 +102,7 @@ class Window(Gtk.ApplicationWindow):
         for widget in (self.form.iso, self.form.devices, self.form.refresh,
                        self.form.persistence, self.form.unmount, self.form.language, self.form.encryption):
             widget.set_sensitive(not busy)
+        self.form.cancel.set_sensitive(self.writing and not self.cancel_requested)
         self.security_changed()
 
     def security_changed(self, *args):
@@ -114,8 +118,8 @@ class Window(Gtk.ApplicationWindow):
             "all": 'Full encryption: ISO and private data are encrypted; boot code remains readable. US boot keyboard. GRUB and Linux ask separately.'}
         text = tr(help_text[mode])
         if mode != "none":
-            text += "\n" + tr('Use a passphrase of at least {minimum} characters.').format(minimum=20 if mode == "all" else 12)
-            text += "\n" + tr('Encrypted creation clears the entire USB first and may take longer. Forgotten passphrases cannot be recovered.')
+            text += "\n" + tr('Use a passphrase of at least {minimum} characters.').format(minimum=12)
+            text += "\n" + tr('Encrypted creation uses quick formatting. Forgotten passphrases cannot be recovered.')
         self.form.security_info.set_text(text)
         self.selection_changed()
 
@@ -240,14 +244,19 @@ class Window(Gtk.ApplicationWindow):
                    '--language', get_language(), '--encrypt-mode', mode]
         self.form.password.set_text("")
         self.form.confirm_password.set_text("")
+        self.cancel_requested = False
+        self.writer_process = None
+        self.writer_error = False
         self.writing = True
         self.set_busy(True)
         self.form.progress.set_fraction(0)
         self.form.status.set_text(tr('Authentication / validating ISO'))
         def work(password):
             completed = False
+            process = None
             try:
                 process = start_writer(command, password)
+                GLib.idle_add(self.writer_ready, process)
                 password = None
                 for line in process.stdout:
                     try:
@@ -262,7 +271,28 @@ class Window(Gtk.ApplicationWindow):
             except Exception as error:
                 GLib.idle_add(self.error, tr('Cannot start the USB writer.') + ' ' + str(error))
                 GLib.idle_add(self.finished, False)
+            finally:
+                if process is not None:
+                    try:
+                        process.stdin.close()
+                    except (BrokenPipeError, ValueError):
+                        pass
+                    process.stdout.close()
         threading.Thread(target=work, args=(password,), daemon=True).start()
+
+    def writer_ready(self, process):
+        self.writer_process = process
+        if self.cancel_requested:
+            request_cancel(process)
+
+    def cancel_creation(self, *args):
+        if not self.writing or self.cancel_requested:
+            return
+        self.cancel_requested = True
+        self.form.cancel.set_sensitive(False)
+        self.form.status.set_text(tr('Cancelling USB creation. Please wait for cleanup.'))
+        if self.writer_process is not None:
+            request_cancel(self.writer_process)
 
     def on_event(self, event):
         if event.get('event') == 'progress':
@@ -271,17 +301,24 @@ class Window(Gtk.ApplicationWindow):
             self.form.progress.set_fraction(fraction)
             self.form.progress.set_text(f'{fraction:.0%}')
             self.form.status.set_text(tr(title))
+        elif event.get('event') == 'cancelled':
+            self.cancel_requested = True
+            self.form.cancel.set_sensitive(False)
+            self.append_log(event.get('message', ''))
         elif event.get('event') == 'error':
+            self.writer_error = True
             self.error(event.get('message', ''))
         elif event.get('event') == 'log':
             self.append_log(event.get('message', ''))
 
     def finished(self, success):
         self.writing = False
+        self.writer_process = None
         self.set_busy(False)
         self.refresh()
-        text = tr('USB created and verified. You can disconnect it.' if success
-                  else 'Creation failed. The USB may be incomplete.')
+        text = tr('USB created and verified. You can disconnect it.' if success else
+                  'Creation cancelled. The USB may be incomplete.' if self.cancel_requested and not self.writer_error else
+                  'Creation failed. The USB may be incomplete.')
         self.form.status.set_text(text)
         self.append_log(text)
         if success:

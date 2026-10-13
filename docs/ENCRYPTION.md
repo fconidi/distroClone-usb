@@ -25,8 +25,8 @@ The persistence volume uses LUKS2 with Argon2id. Full mode also encrypts the ISO
 volume with LUKS2/PBKDF2, supported by the installed GRUB 2.12. Both volumes use
 the same passphrase: an offline attacker can target the PBKDF2 volume, so the
 Argon2id volume does not increase the effective resistance of that shared phrase.
-Use a long, unpredictable phrase. The minimum is 12 characters for persistence
-and 20 ASCII characters for full encryption. The early boot keyboard uses US
+Use a long, unpredictable phrase. The minimum is 12 characters for both encrypted modes. Full encryption requires
+ASCII characters. The early boot keyboard uses US
 layout; letters, digits and spaces avoid punctuation layout differences.
 
 Full mode asks separately in GRUB and in Linux. The Linux prompt unlocks both
@@ -42,12 +42,22 @@ language clears the phrase fields. Python and GTK do not
 guarantee elimination of every transient memory copy; encryption protects data
 at rest, not a compromised running machine.
 
+## Cancel creation
+
+The Cancel button requests a graceful stop. Wait for the helper to finish closing
+its filesystems and encrypted mappings; do not unplug the USB while it is still
+cleaning up. The USB may be incomplete and should be recreated before use.
+Cancellation works through the private control pipe to this helper only, without
+requiring a second administrator prompt. If the desktop exits, the closed control
+pipe also stops its helper. A pending administrator-authentication dialog may
+close before any writer is started. Diagnostics report cleanup failures.
+
 ## Boundaries
 
-Creating an encrypted USB first overwrites all its logical sectors, then creates
-new volumes. It takes longer and destroys existing USB data. Flash controllers
-may retain remapped physical cells, so this is not a forensic secure-erasure
-promise. The tool does not encrypt an existing USB in place or preserve its files.
+Creation uses quick partitioning/formatting and does not overwrite the whole
+USB. Existing files are removed from the new layout, but old plaintext may remain
+in unused sectors. Encryption protects newly written contents; this operation
+is not secure erasure of previous data. The tool does not encrypt an existing USB in place or preserve its files.
 Back them up before recreating it.
 
 The minimal boot area remains unencrypted. This feature does not authenticate

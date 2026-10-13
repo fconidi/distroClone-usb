@@ -1,31 +1,13 @@
 """LUKS lifecycle and secret validation; never put passwords in process arguments."""
 
 import json
-import os
+from pathlib import Path
 import uuid
 
 from .i18n import tr
+from .cancellation import defer_cancellation
 
 MODES = ('none', 'persistence', 'all')
-
-
-def clear_logical_sectors(fd, size, emit):
-    zeros = bytes(4 * 1024 * 1024)
-    done, previous = 0, -1
-    os.lseek(fd, 0, os.SEEK_SET)
-    while done < size:
-        chunk = memoryview(zeros)[:min(len(zeros), size - done)]
-        while chunk:
-            written = os.write(fd, chunk)
-            if written <= 0:
-                raise OSError('Short write while clearing USB')
-            chunk = chunk[written:]
-            done += written
-        percent = int(done * 100 / size)
-        if percent != previous:
-            emit('progress', phase='erase', fraction=done / size)
-            previous = percent
-    os.fsync(fd)
 
 
 def read_secret(stream):
@@ -48,7 +30,7 @@ def validate_encryption(profile, mode, password):
         return
     if profile.family != 'debian':
         raise ValueError(tr('Encryption currently requires a compatible Debian Live / SysLinuxOS ISO.'))
-    minimum = 20 if mode == 'all' else 12
+    minimum = 12
     if (not isinstance(password, str) or not minimum <= len(password) <= 512
             or any(ord(c) < 32 or ord(c) == 127 for c in password)):
         raise ValueError(tr('Use a passphrase of at least {minimum} characters.').format(minimum=minimum))
@@ -87,23 +69,32 @@ class CryptoVolumes:
 
     def format_open(self, device, role, pbkdf):
         name = f'dcusb-{self.token}-{role}'
+        if Path('/dev/mapper/' + name).exists():
+            raise RuntimeError(tr('The disk still contains volumes in use.'))
         args = ['luksFormat', '--batch-mode', '--type', 'luks2', '--cipher', 'aes-xts-plain64',
                 '--key-size', '512', '--hash', 'sha256', '--pbkdf', pbkdf, '--iter-time', '2000']
         if pbkdf == 'argon2id':
             args += ['--pbkdf-memory', '262144', '--pbkdf-parallel', '2']
         self.runner.run('cryptsetup', *args, '--key-file', '-', device, input_secret=self.secret)
-        self.runner.run('cryptsetup', 'open', '--type', 'luks', '--key-file', '-',
-                        device, name, input_secret=self.secret)
-        self.opened.append(name)
+        try:
+            self.runner.run('cryptsetup', 'open', '--type', 'luks', '--key-file', '-',
+                            device, name, input_secret=self.secret)
+            self.opened.append(name)
+        except BaseException:
+            # A cancelled cryptsetup may have created its mapping before exit.
+            if name not in self.opened and Path('/dev/mapper/' + name).exists():
+                self.opened.append(name)
+            raise
         return '/dev/mapper/' + name
 
     def __exit__(self, exc_type, exc_value, traceback):
-        failures = []
-        for name in reversed(self.opened):
-            try:
-                self.runner.run('cryptsetup', 'close', name)
-            except Exception as error:
-                failures.append(str(error))
-        self.secret[:] = b'\0' * len(self.secret)
-        if failures:
-            raise RuntimeError(tr('Unable to close encrypted volumes: {details}').format(details='; '.join(failures)))
+        with defer_cancellation():
+            failures = []
+            for name in reversed(self.opened):
+                try:
+                    self.runner.run('cryptsetup', 'close', name)
+                except Exception as error:
+                    failures.append(str(error))
+            self.secret[:] = b'\0' * len(self.secret)
+            if failures:
+                raise RuntimeError(tr('Unable to close encrypted volumes: {details}').format(details='; '.join(failures)))

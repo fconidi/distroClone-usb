@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--kernel-version', default='6.12.111+deb13-rt-amd64')
     parser.add_argument('--mode', choices=('none', 'persistence', 'all'), default='none')
     parser.add_argument('--task', choices=('create', 'probe_setup'), default='create')
+    parser.add_argument('--quick-cancel-probe', action='store_true')
     args = parser.parse_args()
     output = Path(args.output).resolve()
     root = output / 'root'
@@ -104,11 +105,12 @@ cp -r /app/distroclone_usb /usr/lib/distroclone-usb/
 cp /app/helper.py /usr/lib/distroclone-usb/
 echo DCUSB_GUEST_READY
 export DCUSB_TEST_MODE=@MODE@
+export DCUSB_TEST_QUICK_CANCEL_PROBE=@QUICK@
 python3 /app/tests/guest_@TASK@.py
 sync
 poweroff -f
 '''
-    (root / 'init').write_text(init.replace('@MODE@', args.mode).replace('@TASK@', args.task))
+    (root / 'init').write_text(init.replace('@MODE@', args.mode).replace('@TASK@', args.task).replace('@QUICK@', '1' if args.quick_cancel_probe else '0'))
     (root / 'init').chmod(0o755)
     paths = [b'.'] + [os.fsencode(str(p.relative_to(root))) for p in root.rglob('*')]
     result = subprocess.run(['/usr/bin/cpio', '--null', '-o', '--format=newc', '--owner=0:0'],

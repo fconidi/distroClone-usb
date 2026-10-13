@@ -1,3 +1,10 @@
+distroclone-usb (0.3.0) unstable; urgency=medium
+
+  * Use quick formatting and a 12-character minimum for encrypted modes.
+  * Add graceful cancellation with a private helper control channel.
+
+ -- Franco Conidi <fconidi@gmail.com>  Tue, 13 Oct 2026 23:25:00 +0200
+
 distroclone-usb (0.2.1) unstable; urgency=medium
 
   * Integrate the application into SysLinuxOS Tools using an XDG menu drop-in.

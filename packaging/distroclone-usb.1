@@ -1,4 +1,4 @@
-.TH DISTROCLONE-USB 1 "October 2026" "distroClone USB 0.2.1" "User Commands"
+.TH DISTROCLONE-USB 1 "October 2026" "distroClone USB 0.3.0" "User Commands"
 .SH NAME
 distroclone-usb \- create a persistent live USB from a live ISO
 .SH SYNOPSIS
@@ -15,6 +15,11 @@ Choose unencrypted creation, encrypted persistence and Shared, or full encryptio
 including the ISO. Encryption currently requires a compatible Debian Live or
 SysLinuxOS initramfs. Full mode leaves minimal boot code readable, uses a US boot
 keyboard and asks separately in GRUB and Linux. Existing USBs are not upgraded.
+Passphrases require at least 12 characters. Creation uses quick formatting;
+it does not securely erase old data from unused sectors.
+.SH CANCELLATION
+Click Cancel while creation is running and wait for resource cleanup.
+The USB may be incomplete and should be recreated. Do not unplug it during cleanup.
 .SH OPTIONS
 .TP
 .BI "--inspect " ISO

@@ -59,9 +59,9 @@ def main():
                 assert window.form.create.get_sensitive()
                 window.form.encryption.set_active_id('all')
                 assert not window.form.create.get_sensitive()
-                window.form.password.set_text('distroClone TEST USB 2026 only')
+                window.form.password.set_text('Abcd1234Efgh')
                 assert not window.form.create.get_sensitive()
-                window.form.confirm_password.set_text('distroClone TEST USB 2026 only')
+                window.form.confirm_password.set_text('Abcd1234Efgh')
                 assert window.form.create.get_sensitive()
                 with patch('distroclone_usb.gui.inventory', return_value=[disk]):
                     window.form.language.set_active_id('de')
@@ -85,6 +85,25 @@ def main():
                 window.set_busy(True)
                 assert not window.form.language.get_sensitive()
                 window.set_busy(False)
+                assert not window.form.cancel.get_sensitive()
+                window.writing = True
+                window.set_busy(True)
+                assert window.form.cancel.get_sensitive()
+                with patch('distroclone_usb.gui.request_cancel') as cancel:
+                    window.cancel_creation()
+                    assert window.cancel_requested
+                    assert not window.form.cancel.get_sensitive()
+                    from unittest.mock import Mock
+                    process = Mock()
+                    window.writer_ready(process)
+                    cancel.assert_called_once_with(process)
+                with patch('distroclone_usb.gui.inventory', return_value=[]):
+                    window.finished(False)
+                assert window.form.status.get_text() == tr('Creation cancelled. The USB may be incomplete.')
+                window.cancel_requested = False
+                with patch('distroclone_usb.gui.inventory', return_value=[disk]):
+                    window.refresh()
+                window.form.devices.set_active(0)
                 window.form.iso_info.set_text(f'SysLinuxOS / Debian Live · {image.size/1024**3:.2f} GiB · /live/vmlinuz')
                 window.form.status.set_text('Pronto: ISO riconosciuta e USB selezionata')
                 window.form.progress.set_fraction(0)

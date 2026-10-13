@@ -10,7 +10,7 @@ desktop ISO. Companion to **distroClone** (ISO creation) and
 
 ```bash
 bash build-deb.sh
-sudo apt install ./dist/distroclone-usb_0.2.1_all.deb
+sudo apt install ./dist/distroclone-usb_0.3.0_all.deb
 distroclone-usb
 ```
 
@@ -21,6 +21,10 @@ Mounted desktop volumes can be unmounted with the dedicated button. Other mounts
 swap, internal drives and disks used by device-mapper/RAID are rejected. The
 backend also refuses the disk containing the source ISO. The desktop runs as your
 normal user; only the fixed writer helper runs as administrator.
+
+Use **Cancel** during creation to request a stop and wait for cleanup.
+The USB may be incomplete and must be recreated after cancellation.
+Creation uses quick formatting; passwords require at least 12 characters.
 
 The boot menu provides persistent, temporary and safe-graphics sessions.
 Changes to applications, settings and files persist; a live USB is not a full

@@ -15,7 +15,7 @@ from .iso import demote, open_iso
 
 
 def limited_output(command, uid=None, pass_fds=()):
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                pass_fds=pass_fds, preexec_fn=demote(uid), start_new_session=True,
                                env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LC_ALL': 'C'})
     selector = selectors.DefaultSelector()
