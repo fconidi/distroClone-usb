@@ -14,13 +14,16 @@ import time
 import uuid
 
 from .i18n import tr
-from .devices import device_token, inventory, source_device, validate_target, walk
+from .devices import device_token, inventory, mounts, source_device, validate_target, walk
+from .crypto import CryptoVolumes, clear_logical_sectors, encryption_modules, unlock_search, validate_encryption
+from .encrypted_boot import check_initrd_capabilities, write_supplemental_initrd
 from .iso import digest_fd, inspect_fd, open_iso
 from .layout import make_layout
 from .profiles import grub_config
+from .shared import prepare_shared
 
 SYSTEM_PATH = '/usr/sbin:/usr/bin:/sbin:/bin'
-TOOLS = ('lsblk', 'sfdisk', 'blockdev', 'udevadm', 'mkfs.vfat', 'mkfs.ext4',
+TOOLS = ('lsblk', 'sfdisk', 'blkid', 'blockdev', 'udevadm', 'mkfs.vfat', 'mkfs.ext4',
          'mount', 'umount', 'grub-install', 'grub-mkstandalone', 'xorriso')
 
 
@@ -28,22 +31,28 @@ class Runner:
     def __init__(self, emit):
         self.emit = emit
 
-    def run(self, command, *args, input=None):
+    def run(self, command, *args, input=None, input_secret=None):
         binary = shutil.which(command, path=SYSTEM_PATH)
         if not binary:
             raise RuntimeError(tr('Command not found: {command}').format(command=command))
         self.emit('log', message=' '.join([command, *map(str, args)]))
-        result = subprocess.run([binary, *map(str, args)], input=input,
-                                text=True, capture_output=True,
+        if input is not None and input_secret is not None:
+            raise ValueError('Conflicting command input')
+        result = subprocess.run([binary, *map(str, args)],
+                                input=bytes(input_secret) if input_secret is not None else input,
+                                text=input_secret is None, capture_output=True,
                                 env={'PATH': SYSTEM_PATH, 'LC_ALL': 'C', 'HOME': '/root'},
                                 timeout=600, check=False)
+        stdout = result.stdout.decode(errors='replace') if isinstance(result.stdout, bytes) else result.stdout
+        stderr = result.stderr.decode(errors='replace') if isinstance(result.stderr, bytes) else result.stderr
         if result.returncode:
-            raise RuntimeError(f'{command}: {result.stderr[-2000:] or result.stdout[-2000:]}')
-        return result.stdout.strip()
+            raise RuntimeError(f'{command}: {stderr[-2000:] or stdout[-2000:]}')
+        return stdout.strip()
 
 
-def check_dependencies():
-    missing = [cmd for cmd in TOOLS if not shutil.which(cmd, path=SYSTEM_PATH)]
+def check_dependencies(mode='none'):
+    required = TOOLS + (('cryptsetup', 'lsinitramfs') if mode != 'none' else ())
+    missing = [cmd for cmd in required if not shutil.which(cmd, path=SYSTEM_PATH)]
     for target in ('i386-pc', 'x86_64-efi'):
         if not Path(f'/usr/lib/grub/{target}/modinfo.sh').is_file():
             missing.append('grub-' + target)
@@ -84,13 +93,14 @@ def copy_verified(fd, destination, expected, emit):
 
 
 @contextmanager
-def mount_volumes(device, folder, runner):
+def mount_volumes(device, folder, runner, mapped=None):
     mounted, cleanup_errors = [], []
     try:
         for number, name in ((2, 'efi'), (3, 'data'), (4, 'persist')):
             path = folder / name
             path.mkdir(mode=0o700)
-            runner.run('mount', '-o', 'nosuid,nodev,noexec', partition_path(device, number), str(path))
+            target = mapped[number] if mapped else partition_path(device, number)
+            runner.run('mount', '-o', 'nosuid,nodev,noexec', target, str(path))
             mounted.append(path)
         yield {name: folder / name for name in ('efi', 'data', 'persist')}
     finally:
@@ -125,28 +135,36 @@ def fresh_target(device, expected, confirmation, fd):
     return disk
 
 
-def install_boot(profile, paths, data_label, persistence_label, runner):
+def install_boot(profile, paths, data_label, persistence_label, runner,
+                 mode='none', data_uuid=None, persist_uuid=None):
     boot = paths['data'] / 'boot/grub'
     boot.mkdir(parents=True)
-    (boot / 'grub.cfg').write_text(grub_config(profile, data_label, persistence_label))
+    config = grub_config(profile, data_label, persistence_label, mode, data_uuid, persist_uuid)
+    (boot / 'grub.cfg').write_text(config)
+    if mode == 'all':
+        plain_boot = paths['efi'] / 'boot/grub'
+        plain_boot.mkdir(parents=True)
+        (plain_boot / 'grub.cfg').write_text(config)
     if profile.family == 'debian':
         (paths['persist'] / 'persistence.conf').write_text('/ union\n')
     early = paths['data'] / 'distroclone/early.cfg'
-    early.write_text(f'search --no-floppy --label --set=root {data_label}\n'
-                     'set prefix=($root)/boot/grub\nconfigfile $prefix/grub.cfg\n')
+    early.write_text('\n'.join(unlock_search(data_label, data_uuid if mode == 'all' else None))
+                     + '\nconfigfile ($root)/boot/grub/grub.cfg\n')
     efi = paths['efi'] / 'EFI/BOOT'
     efi.mkdir(parents=True)
     runner.run('grub-mkstandalone', '--format=x86_64-efi', '--locales=', '--fonts=',
-               '--modules=part_gpt fat ext2 iso9660 loopback normal linux search search_label configfile',
+               '--modules=part_gpt fat ext2 iso9660 loopback normal linux search search_label configfile '
+               + encryption_modules(mode),
                '--output=' + str(efi / 'BOOTX64.EFI'), 'boot/grub/grub.cfg=' + str(early))
 
 
-def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid, emit):
+def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid, emit,
+               mode='none', password=None):
     if os.geteuid() != 0:
         raise PermissionError(tr('Creating a USB requires administrative authorization.'))
     if not re.fullmatch(r'[a-f0-9]{64}', sha256):
         raise ValueError(tr('Invalid ISO digest.'))
-    check_dependencies()
+    check_dependencies(mode)
     runner = Runner(emit)
     fd = open_iso(iso, uid)
     lock_fd, folder = None, None
@@ -163,6 +181,9 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
             'progress', phase='inspect', fraction=done / size))
         if image.sha256 != sha256:
             raise ValueError(tr('The ISO changed after selection. No data was written.'))
+        validate_encryption(image.profile, mode, password)
+        if mode != 'none':
+            check_initrd_capabilities(fd, image.profile, uid)
         sector_size = int(runner.run('blockdev', '--getss', device))
         layout = make_layout(disk['size'], image.size, persistence_mib, sector_size)
         folder = Path(tempfile.mkdtemp(prefix='distroclone-usb-'))
@@ -170,6 +191,17 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         data_label = 'dcusb-' + token
         persistence_label = ('dc-p-' + token if image.profile.family == 'debian'
                              else image.profile.persistence_label)
+        fresh_target(device, expected, confirmation, fd)
+        if mode != 'none':
+            wipe_fd = os.open(device, os.O_WRONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            try:
+                actual = os.fstat(wipe_fd)
+                if not stat.S_ISBLK(actual.st_mode) or f'{os.major(actual.st_rdev)}:{os.minor(actual.st_rdev)}' != disk['maj:min']:
+                    raise ValueError(tr('Block device node identity changed.'))
+                assert_same_device(device, expected)
+                clear_logical_sectors(wipe_fd, disk['size'], emit)
+            finally:
+                os.close(wipe_fd)
         fresh_target(device, expected, confirmation, fd)
         emit('progress', phase='partition', fraction=0)
         runner.run('sfdisk', '--wipe', 'always', '--wipe-partitions', 'always',
@@ -180,24 +212,40 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
             if time.monotonic() > deadline:
                 raise RuntimeError(tr('The new USB partitions are unavailable.'))
             time.sleep(.2)
-        for number, label, filesystem in ((2, 'DCUSB-EFI', 'vfat'),
-                                           (3, data_label, 'ext4'), (4, persistence_label, 'ext4')):
-            fresh_target(device, expected, confirmation, fd)
-            target = partition_path(device, number)
-            if filesystem == 'vfat':
-                runner.run('mkfs.vfat', '-F', '32', '-n', label, target)
-            else:
-                # Disable orphan_file for live kernels predating ext4 feature support.
-                runner.run('mkfs.ext4', '-F', '-m', '0', '-O', '^orphan_file', '-L', label, target)
-        fresh_target(device, expected, confirmation, fd)
-        with mount_volumes(device, folder, runner) as paths:
-            (paths['data'] / 'distroclone').mkdir()
-            copy_verified(fd, paths['data'] / 'distroclone/live.iso', sha256, emit)
-            emit('progress', phase='boot', fraction=0)
-            install_boot(image.profile, paths, data_label, persistence_label, runner)
-            assert_same_device(device, expected)
-            runner.run('grub-install', '--target=i386-pc', '--no-floppy', '--recheck',
-                       '--boot-directory=' + str(paths['data'] / 'boot'), device)
+        with CryptoVolumes(runner, password, token) as crypto:
+            mapped, luks_ids = {}, {}
+            for number, label, filesystem in ((2, 'DCUSB-EFI', 'vfat'),
+                                               (3, data_label, 'ext4'), (4, persistence_label, 'ext4')):
+                current = assert_same_device(device, expected)
+                if mounts(current):
+                    raise ValueError(tr('The disk has mounted volumes or active swap. Unmount them first.'))
+                target = partition_path(device, number)
+                if (number == 3 and mode == 'all') or (number == 4 and mode != 'none'):
+                    target = crypto.format_open(target, 'data' if number == 3 else 'persist',
+                                                'pbkdf2' if number == 3 else 'argon2id')
+                    luks_ids[number] = runner.run('cryptsetup', 'luksUUID', partition_path(device, number))
+                mapped[number] = target
+                if filesystem == 'vfat':
+                    runner.run('mkfs.vfat', '-F', '32', '-n', label, target)
+                else:
+                    runner.run('mkfs.ext4', '-F', '-m', '0', '-O', '^orphan_file', '-L', label, target)
+            current = assert_same_device(device, expected)
+            if mounts(current):
+                raise ValueError(tr('The disk has mounted volumes or active swap. Unmount them first.'))
+            with mount_volumes(device, folder, runner, mapped) as paths:
+                persist_fs_uuid = runner.run('blkid', '-s', 'UUID', '-o', 'value', mapped[4])
+                prepare_shared(paths['persist'], image.profile, persist_fs_uuid)
+                (paths['data'] / 'distroclone').mkdir()
+                copy_verified(fd, paths['data'] / 'distroclone/live.iso', sha256, emit)
+                if mode != 'none':
+                    write_supplemental_initrd(paths['data'] / 'distroclone/unlock-initrd.gz')
+                emit('progress', phase='boot', fraction=0)
+                install_boot(image.profile, paths, data_label, persistence_label, runner,
+                             mode, luks_ids.get(3), luks_ids.get(4))
+                assert_same_device(device, expected)
+                boot_root = paths['efi'] if mode == 'all' else paths['data']
+                runner.run('grub-install', '--target=i386-pc', '--no-floppy', '--recheck',
+                           '--boot-directory=' + str(boot_root / 'boot'), device)
         emit('done', message=tr('USB created and verified. Volumes unmounted.'), sha256=sha256)
     finally:
         os.close(fd)

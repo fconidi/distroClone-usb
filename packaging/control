@@ -4,7 +4,7 @@ Section: admin
 Priority: optional
 Architecture: all
 Maintainer: Franco Conidi <fconidi@gmail.com>
-Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-3.0, librsvg2-common, xorriso, fdisk, e2fsprogs, dosfstools, grub-common, grub2-common, grub-pc-bin, grub-efi-amd64-bin, udev, pkexec, polkitd, udisks2
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-3.0, librsvg2-common, xorriso, fdisk, e2fsprogs, dosfstools, grub-common, grub2-common, grub-pc-bin, grub-efi-amd64-bin, udev, pkexec, polkitd, udisks2, cryptsetup-bin, initramfs-tools-core
 Recommends: policykit-1-gnome | polkit-kde-agent-1 | mate-polkit, adwaita-icon-theme
 Homepage: https://www.syslinuxos.com
 Description: Create persistent live USB drives from Debian and Ubuntu desktop ISOs

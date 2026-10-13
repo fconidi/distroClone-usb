@@ -1,6 +1,7 @@
 """Read boot configurations as data; never execute configuration from an ISO."""
 
 from .i18n import tr
+from .crypto import encryption_modules, unlock_search, validate_uuid
 from dataclasses import dataclass
 import re
 import shlex
@@ -114,13 +115,18 @@ def detect_profile(files, configurations, info=''):
     raise UnsupportedISO(tr('No compatible live profile found in the ISO boot menus.'))
 
 
-def grub_config(profile, data_label, persistence_label):
+def grub_config(profile, data_label, persistence_label, mode='none', data_uuid=None, persist_uuid=None):
     for label in (data_label, persistence_label):
         if not re.fullmatch(r'[A-Za-z0-9\-]{1,16}', label):
             raise ValueError(tr('Invalid filesystem label.'))
     text = ['set default=0', 'set timeout=10', 'insmod part_gpt', 'insmod ext2',
-            'insmod iso9660', 'insmod loopback',
-            f'search --no-floppy --label --set=root {data_label}']
+            'insmod iso9660', 'insmod loopback']
+    if mode == 'all':
+        text += ['insmod ' + module for module in encryption_modules(mode).split()]
+        validate_uuid(data_uuid)
+    if mode != 'none':
+        validate_uuid(persist_uuid)
+    text += unlock_search(data_label, data_uuid if mode == 'all' else None)
     if profile.family == 'debian':
         base = f'findiso=/distroclone/live.iso'
         persistent = f'persistence persistence-label={persistence_label}'
@@ -131,11 +137,15 @@ def grub_config(profile, data_label, persistence_label):
     else:
         raise UnsupportedISO(tr('Unknown profile.'))
     args = ' '.join(profile.arguments)
+    data_option = f' dcusb.data-uuid={data_uuid}' if mode == 'all' else ''
     for title, extra in [('Live - persistence', persistent),
                          ('Live - temporary session', temporary),
                          ('Live - persistence (safe graphics)', persistent + ' nomodeset')]:
+        persist_option = (f' dcusb.persist-uuid={persist_uuid}'
+                          if mode != 'none' and extra != temporary else '')
         text += [f'menuentry "distroClone USB: {tr(title)}" {{',
                  '    loopback loop /distroclone/live.iso',
-                 f'    linux (loop){profile.kernel} {args} {base} {extra}',
-                 '    initrd ' + ' '.join(f'(loop){p}' for p in profile.initrds), '}']
+                 f'    linux (loop){profile.kernel} {args} {base} {extra}{data_option}{persist_option}',
+                 '    initrd ' + ' '.join(f'(loop){p}' for p in profile.initrds)
+                 + (' /distroclone/unlock-initrd.gz' if mode != 'none' else ''), '}']
     return '\n'.join(text) + '\n'
