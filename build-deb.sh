@@ -10,6 +10,7 @@ install -d "$STAGE_DIR/DEBIAN" "$STAGE_DIR/usr/bin" "$STAGE_DIR/usr/lib/distrocl
     "$STAGE_DIR/usr/share/man/man1" "$ROOT_DIR/dist"
 install -m 644 "$ROOT_DIR"/distroclone_usb/*.py "$STAGE_DIR/usr/lib/distroclone-usb/distroclone_usb/"
 install -m 644 "$ROOT_DIR/distroclone_usb/translations.json" "$STAGE_DIR/usr/lib/distroclone-usb/distroclone_usb/"
+install -m 644 "$ROOT_DIR/distroclone_usb/boot_unlock.sh" "$STAGE_DIR/usr/lib/distroclone-usb/distroclone_usb/"
 install -m 755 "$ROOT_DIR/helper.py" "$STAGE_DIR/usr/lib/distroclone-usb/helper.py"
 install -m 755 "$ROOT_DIR/packaging/distroclone-usb" "$STAGE_DIR/usr/bin/distroclone-usb"
 install -m 644 "$ROOT_DIR/packaging/distroclone-usb.desktop" "$STAGE_DIR/usr/share/applications/"
