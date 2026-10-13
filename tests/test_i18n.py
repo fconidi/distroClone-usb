@@ -57,7 +57,9 @@ class TranslationTest(unittest.TestCase):
             path = Path(folder) / 'grub.cfg'
             for code in LANGUAGES:
                 set_language(code)
-                path.write_text(grub_config(profile, 'dcusb123', 'dc-p123'))
+                path.write_text(grub_config(profile, 'dcusb123', 'dc-p123', 'all',
+                    '12345678-1234-1234-1234-123456789abc',
+                    '87654321-4321-4321-4321-cba987654321'))
                 result = subprocess.run(['grub-script-check', str(path)], capture_output=True)
                 self.assertEqual(result.returncode, 0, (code, result.stderr))
 
@@ -69,8 +71,8 @@ class TranslationTest(unittest.TestCase):
             result = subprocess.run(['/usr/bin/python3', '-I', str(helper), '--iso', '/nonexistent.iso',
                                      '--device', '/dev/not-a-disk', '--persistence-mib', '512',
                                      '--expected-id', '0'*64, '--confirm', 'not-a-disk',
-                                     '--sha256', '0'*64, '--language', code],
-                                    capture_output=True, text=True)
+                                     '--sha256', '0'*64, '--language', code, '--encrypt-mode', 'all'],
+                                    capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=5)
             self.assertEqual(result.returncode, 1)
             self.assertEqual(json.loads(result.stdout)['message'],
                              tr('Creating a USB requires administrative authorization.'))

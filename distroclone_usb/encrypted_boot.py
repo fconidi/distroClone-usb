@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import selectors
 import signal
+import stat
 import subprocess
 import tempfile
 import time
@@ -42,8 +43,33 @@ def limited_output(command, uid=None, pass_fds=()):
             process.wait()
 
 
+def read_order(extracted, relative):
+    """Read only a regular file inside the extracted tree, never ISO symlinks."""
+    directory = os.open(extracted, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        parts = relative.split('/')
+        for component in parts[:-1]:
+            child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        fd = os.open(parts[-1], os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=directory)
+        try:
+            info = os.fstat(fd)
+            if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or info.st_size > 65536:
+                raise ValueError(tr('The ISO initramfs could not be verified for encryption.'))
+            order = os.read(fd, 65537)
+        finally:
+            os.close(fd)
+        if len(order) > 65536:
+            raise ValueError(tr('The ISO initramfs could not be verified for encryption.'))
+        return order
+    finally:
+        os.close(directory)
+
+
 def check_initrd_capabilities(iso_fd, profile, uid):
     contents = set()
+    orders = []
     with tempfile.TemporaryDirectory(prefix='dcusb-initrd-') as folder:
         if os.geteuid() == 0 and uid is not None:
             os.chown(folder, uid, -1)
@@ -58,6 +84,16 @@ def check_initrd_capabilities(iso_fd, profile, uid):
                     raise ValueError(tr('The ISO initramfs could not be verified for encryption.'))
                 listing = limited_output(['/usr/bin/lsinitramfs', f'/proc/self/fd/{fd}'], uid, (fd,))
                 contents.update(line.removeprefix('./') for line in listing.splitlines())
+                extracted = Path(folder) / ('extracted-' + str(index))
+                limited_output(['/usr/bin/unmkinitramfs', f'/proc/self/fd/{fd}', str(extracted)], uid, (fd,))
+                for relative in ('scripts/init-premount/ORDER', 'main/scripts/init-premount/ORDER'):
+                    try:
+                        orders.append(read_order(extracted, relative))
+                    except FileNotFoundError:
+                        continue
+                    except OSError:
+                        raise ValueError(tr('The ISO initramfs could not be verified for encryption.')) from None
+
             finally:
                 os.close(fd)
     if (not {'usr/sbin/cryptsetup', 'sbin/cryptsetup'} & contents
@@ -65,6 +101,9 @@ def check_initrd_capabilities(iso_fd, profile, uid):
             or 'scripts/live' not in contents
             or not any('/dm-crypt.ko' in name for name in contents)):
         raise ValueError(tr('The ISO lacks cryptsetup, askpass or dm-crypt support. Use a compatible SysLinuxOS ISO.'))
+    if not orders:
+        raise ValueError(tr('The ISO initramfs could not be verified for encryption.'))
+    return orders[-1]
 
 
 def newc_entry(name, content, mode, inode):
@@ -77,11 +116,13 @@ def newc_entry(name, content, mode, inode):
     return record + b'\0' * (-len(content) % 4)
 
 
-def write_supplemental_initrd(destination):
+def write_supplemental_initrd(destination, original_order=b""):
     script = Path(__file__).with_name('boot_unlock.sh').read_bytes()
     archive = newc_entry('scripts', b'', 0o40755, 1)
     archive += newc_entry('scripts/init-premount', b'', 0o40755, 2)
     archive += newc_entry('scripts/init-premount/distroclone-usb-unlock', script, 0o100755, 3)
-    archive += newc_entry('TRAILER!!!', b'', 0, 4)
+    order = b'/scripts/init-premount/distroclone-usb-unlock \"$@\"\n' + original_order
+    archive += newc_entry('scripts/init-premount/ORDER', order, 0o100644, 4)
+    archive += newc_entry('TRAILER!!!', b'', 0, 5)
     destination.write_bytes(gzip.compress(archive, mtime=0))
     destination.chmod(0o600)

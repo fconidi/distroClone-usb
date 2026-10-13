@@ -20,13 +20,15 @@ class CryptoTest(unittest.TestCase):
     def test_supplemental_archive_contains_only_trusted_unlock_script(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / 'unlock.gz'
-            write_supplemental_initrd(path)
+            write_supplemental_initrd(path, b"/scripts/init-premount/original-test-script \"$@\"\n")
             contents = gzip.decompress(path.read_bytes())
             result = subprocess.run(['cpio', '-it'], input=contents, capture_output=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(result.stdout.decode().splitlines(),
-                             ['scripts', 'scripts/init-premount', 'scripts/init-premount/distroclone-usb-unlock'])
+                             ['scripts', 'scripts/init-premount', 'scripts/init-premount/distroclone-usb-unlock', 'scripts/init-premount/ORDER'])
             self.assertNotIn(b'TEST-SECRET', contents)
+            self.assertIn(b'/scripts/init-premount/original-test-script', contents)
+            self.assertIn(b'/scripts/init-premount/distroclone-usb-unlock \"$@\"', contents)
 
     def test_logical_sector_initialization_removes_old_plaintext(self):
         with tempfile.TemporaryFile() as file:
@@ -87,6 +89,42 @@ class CryptoTest(unittest.TestCase):
         config = grub_config(DEBIAN, 'dcusb123', 'dc-p123', 'all', data, persist)
         self.assertIn('cryptomount -u ' + data.replace('-', ''), config)
         self.assertIn('dcusb.data-uuid=' + data, config)
+        self.assertIn('live-media=/dev/mapper/dcusb_data', config)
         self.assertIn('dcusb.persist-uuid=' + persist, config)
         self.assertIn('/distroclone/unlock-initrd.gz', config)
         self.assertIn('luks2', encryption_modules('all'))
+    def test_preflight_preserves_original_initpremount_order(self):
+        from distroclone_usb.encrypted_boot import check_initrd_capabilities
+        def command(argv, uid=None, pass_fds=()):
+            if argv[0].endswith('xorriso'):
+                Path(argv[-1]).write_bytes(b'initrd fixture')
+            elif argv[0].endswith('lsinitramfs'):
+                return ('usr/sbin/cryptsetup\nusr/lib/cryptsetup/askpass\n'
+                        'scripts/live\nusr/lib/modules/test/dm-crypt.ko.xz\n')
+            elif argv[0].endswith('unmkinitramfs'):
+                path = Path(argv[-1]) / 'main/scripts/init-premount/ORDER'
+                path.parent.mkdir(parents=True)
+                path.write_bytes(b'/scripts/init-premount/original "$@"\n')
+            return ''
+        with tempfile.TemporaryFile() as iso, patch('distroclone_usb.encrypted_boot.limited_output', side_effect=command):
+            self.assertEqual(check_initrd_capabilities(iso.fileno(), DEBIAN, os.getuid()),
+                             b'/scripts/init-premount/original "$@"\n')
+
+    def test_initrd_order_cannot_read_host_files_through_symlinks(self):
+        from distroclone_usb.encrypted_boot import read_order
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            outside = root / 'private-host-file'
+            outside.write_text('PRIVATE TEST DATA')
+            extracted = root / 'extracted'
+            path = extracted / 'scripts/init-premount'
+            path.mkdir(parents=True)
+            (path / 'ORDER').symlink_to(outside)
+            with self.assertRaises(OSError):
+                read_order(extracted, 'scripts/init-premount/ORDER')
+            (path / 'ORDER').unlink()
+            path.rmdir()
+            (extracted / 'scripts').rmdir()
+            (extracted / 'scripts').symlink_to(root)
+            with self.assertRaises(OSError):
+                read_order(extracted, 'scripts/init-premount/ORDER')

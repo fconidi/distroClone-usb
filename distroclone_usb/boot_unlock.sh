@@ -45,12 +45,12 @@ open_volume() {
 
 for attempt in 1 2 3; do
     dcusb_secret=$("$askpass" 'distroClone USB: enter USB passphrase: ' 2>/dev/console) || fail_closed
-    if open_volume "$data_uuid" dcusb-data; then
+    if open_volume "$data_uuid" dcusb_data; then
         if open_volume "$persist_uuid" dcusb-persist; then
             unset dcusb_secret
             exit 0
         fi
-        [ -z "$data_uuid" ] || cryptsetup close dcusb-data
+        [ -z "$data_uuid" ] || cryptsetup close dcusb_data
     fi
     unset dcusb_secret
 done
