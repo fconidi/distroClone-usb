@@ -14,6 +14,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--output', required=True)
     parser.add_argument('--kernel-version', default='6.12.111+deb13-rt-amd64')
+    parser.add_argument('--mode', choices=('none', 'persistence', 'all'), default='none')
+    parser.add_argument('--task', choices=('create', 'probe_setup'), default='create')
     args = parser.parse_args()
     output = Path(args.output).resolve()
     root = output / 'root'
@@ -40,7 +42,8 @@ def main():
     tools = ['busybox', 'python3', 'lsblk', 'sfdisk', 'blockdev', 'udevadm', 'mkfs.vfat',
              'mkfs.ext4', 'mount', 'umount', 'grub-install', 'grub-mkstandalone',
              'grub-probe', 'grub-mkimage', 'grub-mkrelpath',
-             'xorriso', 'modprobe']
+             'xorriso', 'modprobe', 'blkid', 'cryptsetup', 'dmsetup', 'lsinitramfs',
+             'unmkinitramfs', 'getopt', 'cpio', 'gzip', 'zstd', 'xz']
     for tool in tools:
         binary = shutil.which(tool, path='/usr/sbin:/usr/bin:/sbin:/bin')
         if not binary:
@@ -57,7 +60,8 @@ def main():
             dest.symlink_to('busybox')
     kernel = args.kernel_version
     modules = ['9p', '9pnet_virtio', 'virtio_blk', 'xhci_pci', 'usb_storage',
-               'sd_mod', 'ext4', 'vfat', 'nls_cp437', 'nls_ascii', 'loop']
+               'sd_mod', 'ext4', 'vfat', 'nls_cp437', 'nls_ascii', 'loop',
+               'dm_crypt', 'aesni_intel', 'xts']
     for module in modules:
         result = subprocess.check_output(['/usr/sbin/modprobe', '--show-depends', '-S', kernel, module], text=True)
         for source in re.findall(r'^insmod (\S+)', result, re.M):
@@ -89,6 +93,9 @@ modprobe ext4
 modprobe vfat
 modprobe nls_cp437
 modprobe nls_ascii
+modprobe dm_crypt
+modprobe aesni_intel
+modprobe xts
 mount -t 9p -o trans=virtio,version=9p2000.L,msize=1048576,cache=loose,ro app /app
 mount -t ext4 -o ro /dev/vda /iso
 sleep 3
@@ -96,11 +103,12 @@ mkdir -p /usr/lib/distroclone-usb
 cp -r /app/distroclone_usb /usr/lib/distroclone-usb/
 cp /app/helper.py /usr/lib/distroclone-usb/
 echo DCUSB_GUEST_READY
-python3 /app/tests/guest_create.py
+export DCUSB_TEST_MODE=@MODE@
+python3 /app/tests/guest_@TASK@.py
 sync
 poweroff -f
 '''
-    (root / 'init').write_text(init)
+    (root / 'init').write_text(init.replace('@MODE@', args.mode).replace('@TASK@', args.task))
     (root / 'init').chmod(0o755)
     paths = [b'.'] + [os.fsencode(str(p.relative_to(root))) for p in root.rglob('*')]
     result = subprocess.run(['/usr/bin/cpio', '--null', '-o', '--format=newc', '--owner=0:0'],
