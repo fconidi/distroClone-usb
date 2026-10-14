@@ -1,16 +1,14 @@
 # Compatibility
 
-Version 0.2.0 implements profiles, not a blanket promise for every Debian derivative.
+Supported profiles in version 0.3.1. Compatibility depends on the structure of each live image.
 
-| ISO family | Implementation | Verification |
-|---|---|---|
-| SysLinuxOS / Debian Live using live-boot | findiso, dedicated ext4 persistence, unique persistence-label, / union | SysLinuxOS 13.2 MATE: real creation, BIOS/UEFI boot and persistence across reboots verified in QEMU/KVM; details in VALIDATION.md |
-| Ubuntu desktop / recognized Ubuntu flavors | casper, iso-scan/filename, writable since Ubuntu 20.04; casper-rw for earlier releases | Synthetic ISO/profile tests; real distribution boot pending |
-| Linux Mint desktop | casper, writable since Mint 20; casper-rw for earlier releases | Profile parsing implemented; real distribution boot pending |
-| Other Debian live-boot derivatives | Same Debian profile when ISO structure and boot entry match | Must validate each image/version |
-| MX / antiX | Recognized explicitly | Creation rejected |
-| Installer-only / Ubuntu Server | Unsupported | Creation rejected |
-| ARM, IA32-only UEFI, Secure Boot | Unsupported | Creation rejected or firmware requirement documented |
+| ISO family | Support |
+|---|---|
+| SysLinuxOS / Debian Live with live-boot | Persistence and optional encryption for compatible images |
+| Recognized Ubuntu desktop and Linux Mint casper images | Unencrypted persistence |
+| Other Debian live-boot derivatives | Depends on image structure |
+| MX / antiX and installer-only images | Unsupported |
+| ARM, IA32-only UEFI and Secure Boot | Unsupported |
 
 The host requires GRUB i386-pc and x86_64-efi modules. An amd64 Debian/Ubuntu host
 is the intended platform. No firmware NVRAM entries or host bootloaders are changed.

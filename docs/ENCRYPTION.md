@@ -66,12 +66,3 @@ of the USB. Secure Boot remains unsupported and must be disabled.
 Other Linux desktops can unlock LUKS volumes through their disk/file manager and
 then open Shared. Unlock the persistence volume, rather than copying private
 files onto the readable boot area or the ISO volume in persistence-only mode.
-
-## Per la pendrive già creata con 0.1
-
-La nuova cartella Shared e la cifratura si applicano alle USB create dalla nuova
-versione. Non vengono aggiunte automaticamente alla chiavetta esistente.
-I quattro `.deb` già verificati restano nella radice del suo volume persistente:
-vedi [USB-FILES.md](USB-FILES.md). Salvali prima di ricreare la USB; dopo la
-creazione copiali nella cartella `Shared` del volume persistente, sbloccandolo se
-cifrato. Nella live persistente li troverai nella Home, attraverso il link Shared.

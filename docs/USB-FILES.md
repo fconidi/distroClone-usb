@@ -1,18 +1,4 @@
-# File copiati nella partizione persistente da un altro sistema
-
-## Verifica sulla USB fisica — 13 ottobre 2026
-La chiavetta dell'utente avvia correttamente un altro PC. Sul sistema installato
-sono stati copiati quattro pacchetti nella radice del volume persistente:
-
-- advanced-comics-converter_2.3.0_all.deb
-- distroclone-usb_0.1.0_all.deb
-- rename-comics-universal_3.2.1_all.deb
-- syslinuxos-boot-repair_0.3.1_amd64.deb
-
-Ispezione in sola lettura: tutti e quattro i file presenti, partizione ext4 da
-8 GiB, `persistence.conf` contenente `/ union`, directory `rw` e `work` presenti.
-Il menu GRUB predefinito abilita `persistence` e seleziona l'etichetta corretta.
-Nessuna modifica ai file, alla configurazione o alle partizioni eseguita.
+# File condivisi sulla USB persistente
 
 ## Perché i file non compaiono nella Home della live
 La persistenza del sistema usa `rw` come livello scrivibile dell'overlay. I file

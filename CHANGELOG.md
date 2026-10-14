@@ -39,4 +39,3 @@
 
 ### Limitations
 - MX/antiX, Secure Boot and non-x86-64 images are outside this first version.
-- Actual distribution/firmware verification is recorded separately in docs/VALIDATION.md.

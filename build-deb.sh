@@ -26,7 +26,6 @@ gzip -n -9 -c "$ROOT_DIR/packaging/distroclone-usb.1" > "$STAGE_DIR/usr/share/ma
 chmod 644 "$STAGE_DIR/usr/share/doc/distroclone-usb/"*.gz "$STAGE_DIR/usr/share/man/man1/"*.gz
 install -m 644 "$ROOT_DIR/docs/COMPATIBILITY.md" "$STAGE_DIR/usr/share/doc/distroclone-usb/"
 install -m 644 "$ROOT_DIR/docs/ENCRYPTION.md" "$ROOT_DIR/docs/USB-FILES.md" "$STAGE_DIR/usr/share/doc/distroclone-usb/"
-install -m 644 "$ROOT_DIR/docs/VALIDATION.md" "$STAGE_DIR/usr/share/doc/distroclone-usb/"
 sed "s/@VERSION@/$VERSION/" "$ROOT_DIR/packaging/control" > "$STAGE_DIR/DEBIAN/control"
 find "$STAGE_DIR" -type d -exec chmod 755 {} +
 dpkg-deb --root-owner-group --build "$STAGE_DIR" "$ROOT_DIR/dist/distroclone-usb_${VERSION}_all.deb"
