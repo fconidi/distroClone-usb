@@ -65,15 +65,7 @@ These commands do not write media. The privileged helper additionally requires t
 reviewed ISO digest, current device identity and exact device-name confirmation.
 Never run the GTK desktop as root.
 
-## Development and verification
-
-```bash
-/usr/bin/python3 -m unittest discover -s tests -v
-/usr/bin/python3 -m distroclone_usb --inspect /path/to/live.iso
-/usr/bin/python3 tests/gtk_workflow.py --output "$HOME/.cache/distroclone-usb/.test-artifacts/ui"
-bash build-deb.sh
-```
-
+## Languages and supported formats
 
 Python standard library plus GTK 3/PyGObject; no pip dependencies. The interface,
 confirmation dialogs and application diagnostics support **English, Italian,
