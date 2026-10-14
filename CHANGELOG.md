@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 — 2026-10-14
+
+- Capitalize the SysLinuxOS Tools menu entry as DistroClone USB.
+
 ## 0.3.0 — 2026-10-13
 
 - Use quick formatting for encrypted creation, without overwriting the whole USB.

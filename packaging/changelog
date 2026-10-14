@@ -1,3 +1,9 @@
+distroclone-usb (0.3.1) unstable; urgency=medium
+
+  * Capitalize the SysLinuxOS Tools menu entry as DistroClone USB.
+
+ -- Franco Conidi <fconidi@gmail.com>  Wed, 14 Oct 2026 20:46:00 +0200
+
 distroclone-usb (0.3.0) unstable; urgency=medium
 
   * Use quick formatting and a 12-character minimum for encrypted modes.
