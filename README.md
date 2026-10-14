@@ -77,6 +77,7 @@ Never run the GTK desktop as root.
 bash build-deb.sh
 ```
 
+
 Python standard library plus GTK 3/PyGObject; no pip dependencies. The interface,
 confirmation dialogs and application diagnostics support **English, Italian,
 Spanish, French and German**. The initial language follows the session locale;
