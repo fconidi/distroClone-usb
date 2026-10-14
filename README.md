@@ -77,11 +77,6 @@ Never run the GTK desktop as root.
 bash build-deb.sh
 ```
 
-Heavy tests and VMs must run in the host's local `~/.cache/distroclone-usb/`,
-outside Nextcloud and other synchronized folders. Keep their working directories,
-temporary files (`TMPDIR`), disk images, logs and screenshots there; resolve
-symlinks before running. `.gitignore` does not prevent Nextcloud synchronization.
-See `AGENTS.md` for the mandatory rule.
 
 Python standard library plus GTK 3/PyGObject; no pip dependencies. The interface,
 confirmation dialogs and application diagnostics support **English, Italian,
