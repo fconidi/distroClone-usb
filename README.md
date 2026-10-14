@@ -1,18 +1,28 @@
-# distroClone USB
+# DistroClone USB
+
+<p align="center">
+  <img src="packaging/distroclone-usb.svg" alt="DistroClone USB logo" width="180">
+</p>
+
+[![Latest release](https://img.shields.io/github/v/release/fconidi/distroClone-usb)](https://github.com/fconidi/distroClone-usb/releases/latest)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 Create a persistent live USB from a Debian Live, SysLinuxOS, Ubuntu or Linux Mint
 desktop ISO. Companion to **distroClone** (ISO creation) and
 **distroclone-backup** (backup and recovery).
 
-![distroClone USB logo](packaging/distroclone-usb.svg)
+![DistroClone USB interface in Italian](docs/desktop-it.png)
 
 ## Install and run
 
+Download the Debian package from the [latest release](https://github.com/fconidi/distroClone-usb/releases/latest), then install it:
+
 ```bash
-bash build-deb.sh
-sudo apt install ./dist/distroclone-usb_0.3.0_all.deb
+sudo apt install ./distroclone-usb_0.3.1_all.deb
 distroclone-usb
 ```
+
+To build from source, run `bash build-deb.sh`; the package is generated in `dist/`.
 
 Choose an ISO, select a USB drive, set persistence space in GiB and choose an encryption mode, then click
 **Create USB**. Check the disk model, capacity and serial number, type its device
@@ -33,7 +43,7 @@ The tool creates an **unsigned x86-64 UEFI** loader and a **Legacy BIOS** loader
 **Disable Secure Boot** to use the generated USB. See
 [compatibility](docs/COMPATIBILITY.md) for implemented and verified combinations.
 
-On SysLinuxOS, launch it from **SysLinuxOS Tools → distroClone USB**.
+On SysLinuxOS, launch it from **SysLinuxOS Tools → DistroClone USB**.
 
 ## Shared files and optional encryption
 
