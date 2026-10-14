@@ -63,7 +63,7 @@ Never run the GTK desktop as root.
 ```bash
 /usr/bin/python3 -m unittest discover -s tests -v
 /usr/bin/python3 -m distroclone_usb --inspect /path/to/live.iso
-/usr/bin/python3 tests/gtk_workflow.py --output .test-artifacts/ui
+/usr/bin/python3 tests/gtk_workflow.py --output "$HOME/.cache/distroclone-usb/.test-artifacts/ui"
 bash build-deb.sh
 ```
 
