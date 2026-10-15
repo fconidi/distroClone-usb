@@ -14,6 +14,9 @@ import subprocess
 import time
 
 
+ARTIFACTS = Path.home() / '.cache' / 'distroclone-usb' / 'test-artifacts'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', required=True)
@@ -27,8 +30,8 @@ def main():
     parser.add_argument('--reject-password', action='store_true')
     args = parser.parse_args()
     image, log = Path(args.image).resolve(), Path(args.log).resolve()
-    if '.test-artifacts' not in image.parts or not image.is_file():
-        parser.error('Only an existing disposable .test-artifacts image may be used')
+    if ARTIFACTS not in image.parents or not image.is_file():
+        parser.error('Only an existing disposable image under ~/.cache/distroclone-usb/test-artifacts may be used')
     command = ['/usr/bin/qemu-system-x86_64', '-accel', 'kvm', '-cpu', 'host', '-m', '2048',
                '-display', 'none', '-serial', 'stdio', '-monitor', 'none', '-no-reboot', '-nic', 'none',
                '-drive', 'if=none,id=stick,format=raw,file=' + str(image),

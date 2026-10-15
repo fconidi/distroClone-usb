@@ -7,14 +7,17 @@ from pathlib import Path
 import subprocess
 
 
+ARTIFACTS = Path.home() / '.cache' / 'distroclone-usb' / 'test-artifacts'
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', required=True)
     parser.add_argument('--mode', choices=('persistence', 'all'), required=True)
     args = parser.parse_args()
     path = Path(args.image).resolve()
-    if '.test-artifacts' not in path.parts or not path.is_file():
-        parser.error('Only an existing disposable .test-artifacts image may be used')
+    if ARTIFACTS not in path.parents or not path.is_file():
+        parser.error('Only an existing disposable image under ~/.cache/distroclone-usb/test-artifacts may be used')
     table = json.loads(subprocess.check_output(['/usr/sbin/sfdisk', '--json', str(path)], text=True))['partitiontable']
     sectors = table.get('sectorsize', 512)
     with path.open('rb') as stream:
