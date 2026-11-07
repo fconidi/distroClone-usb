@@ -3,6 +3,7 @@
 
 import argparse
 from contextlib import nullcontext
+import ctypes
 import json
 import os
 import resource
@@ -17,8 +18,21 @@ from distroclone_usb.cancellation import Cancellation, CancellationRequested
 from distroclone_usb.crypto import MODES, read_secret
 
 
+STATE = {'done': False}
+
+
 def emit(event, **data):
+    if event == 'done':
+        STATE['done'] = True
     print(json.dumps({'event': event, **data}), flush=True)
+
+
+def lock_memory():
+    """Best effort: keep the passphrase out of swap."""
+    try:
+        ctypes.CDLL(None, use_errno=True).mlockall(1 | 2)  # MCL_CURRENT | MCL_FUTURE
+    except (OSError, AttributeError):
+        pass
 
 
 def main():
@@ -36,6 +50,7 @@ def main():
     set_language(args.language)
     os.umask(0o077)
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    lock_memory()
     # Permit cleanup on terminal termination; SIGKILL/power loss cannot be handled.
     def stop(signum, frame):
         raise CancellationRequested(tr('Operation interrupted. The USB may be incomplete.'))
@@ -50,19 +65,23 @@ def main():
                 password = read_secret(stream) if args.encrypt_mode != 'none' else None
         else:
             password = read_secret(sys.stdin.buffer) if args.encrypt_mode != 'none' else None
-        uid = int(os.environ.get('PKEXEC_UID', os.environ.get('SUDO_UID', os.getuid())))
+        # Never parse an untrusted ISO as root: fall back to an unprivileged id.
+        uid = int(os.environ.get('PKEXEC_UID', os.environ.get('SUDO_UID', 65534))) or 65534
         with Cancellation(sys.stdin.fileno()) if args.control_stdin else nullcontext() as cancellation:
             create_usb(args.iso, args.device, args.persistence_mib, args.expected_id,
                        args.confirm, args.sha256, uid, emit, args.encrypt_mode, password)
             if cancellation is not None and cancellation.requested:
                 cancellation.raise_cancelled()
-        password = None
     except (InterruptedError, CancellationRequested) as error:
+        if STATE['done']:
+            return 0  # The USB was completed; a late cancel changes nothing.
         emit('cancelled', message=str(error))
         return 2
     except Exception as error:
         emit('error', message=str(error))
         return 1
+    finally:
+        password = None
     return 0
 
 

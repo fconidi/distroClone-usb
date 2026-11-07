@@ -1,6 +1,6 @@
 """Privileged operations. No physical target is accepted without fresh validation."""
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import fcntl
 import hashlib
 import os
@@ -24,6 +24,8 @@ from .profiles import grub_config
 from .shared import prepare_shared
 
 SYSTEM_PATH = '/usr/sbin:/usr/bin:/sbin:/bin'
+RUN_DIR = '/run/distroclone-usb'
+UDEV_RULES = '/run/udev/rules.d'
 TOOLS = ('lsblk', 'sfdisk', 'blkid', 'blockdev', 'udevadm', 'mkfs.vfat', 'mkfs.ext4',
          'mount', 'umount', 'grub-install', 'grub-mkstandalone', 'xorriso')
 
@@ -50,6 +52,55 @@ class Runner:
         if result.returncode:
             raise RuntimeError(f'{command}: {stderr[-2000:] or stdout[-2000:]}')
         return stdout.strip()
+
+
+def ext4_options():
+    """Return the mkfs.ext4 feature options this e2fsprogs build understands."""
+    binary = shutil.which('mke2fs', path=SYSTEM_PATH)
+    if not binary:
+        return []
+    result = subprocess.run([binary, '-V'], capture_output=True, text=True, timeout=30,
+                            env={'PATH': SYSTEM_PATH, 'LC_ALL': 'C'}, check=False)
+    found = re.search(r'mke2fs (\d+)\.(\d+)', result.stderr + result.stdout)
+    # orphan_file exists from e2fsprogs 1.47; older tools reject the unknown flag.
+    if found and tuple(map(int, found.groups())) >= (1, 47):
+        return ['-O', '^orphan_file']
+    return []
+
+
+@contextmanager
+def automount_blocked(device, runner):
+    """Ask udisks to ignore the target disk and its partitions while it is rewritten."""
+    name = os.path.basename(device)
+    if not re.fullmatch(r'[A-Za-z0-9]+', name):
+        yield
+        return
+    os.makedirs(UDEV_RULES, mode=0o755, exist_ok=True)
+    rule = Path(UDEV_RULES) / f'90-distroclone-usb-{name}.rules'
+    rule.write_text('SUBSYSTEM=="block", KERNEL=="%s|%s[0-9]*|%sp[0-9]*", ENV{UDISKS_IGNORE}="1"\n'
+                    % (name, name, name))
+    try:
+        runner.run('udevadm', 'control', '--reload')
+        yield
+    finally:
+        with defer_cancellation():
+            rule.unlink(missing_ok=True)
+            try:
+                runner.run('udevadm', 'control', '--reload')
+            except (RuntimeError, subprocess.SubprocessError):
+                pass
+
+
+def lock_directory():
+    """Root-only lock directory: /run/lock is world-writable and unsafe for root locks."""
+    try:
+        os.mkdir(RUN_DIR, 0o700)
+    except FileExistsError:
+        pass
+    info = os.lstat(RUN_DIR)
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077:
+        raise ValueError(tr('Invalid lock file.'))
+    return RUN_DIR
 
 
 def check_dependencies(mode='none'):
@@ -82,11 +133,14 @@ def copy_verified(fd, destination, expected, emit):
                 last_percent = percent
         stream.flush()
         os.fsync(stream.fileno())
+        # Verification must read what the USB holds, not dirty cached pages.
+        os.posix_fadvise(stream.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
     if digest.hexdigest() != expected or done != total:
         raise ValueError(tr('The source ISO changed during copying. USB incomplete.'))
     emit('progress', phase='verify', fraction=0)
     verify_fd = os.open(destination, os.O_RDONLY | os.O_NOFOLLOW)
     try:
+        os.posix_fadvise(verify_fd, 0, 0, os.POSIX_FADV_DONTNEED)
         if digest_fd(verify_fd, lambda done, size: emit(
                 'progress', phase='verify', fraction=done / size)) != expected:
             raise ValueError(tr('USB copy SHA-256 verification failed.'))
@@ -176,10 +230,10 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
     check_dependencies(mode)
     runner = Runner(emit)
     fd = open_iso(iso, uid)
-    lock_fd, folder = None, None
+    lock_fd, folder, stack = None, None, ExitStack()
     try:
         disk = fresh_target(device, expected, confirmation, fd)
-        lock_path = '/run/lock/distroclone-usb-' + disk['maj:min'].replace(':', '-')
+        lock_path = lock_directory() + '/lock-' + disk['maj:min'].replace(':', '-')
         lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
         lock_info = os.fstat(lock_fd)
         if lock_info.st_uid != 0 or not stat.S_ISREG(lock_info.st_mode) or lock_info.st_nlink != 1:
@@ -193,6 +247,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         validate_encryption(image.profile, mode, password)
         if mode != 'none':
             initrd_order = check_initrd_capabilities(fd, image.profile, uid)
+        mke2fs_options = ext4_options()
         sector_size = int(runner.run('blockdev', '--getss', device))
         layout = make_layout(disk['size'], image.size, persistence_mib, sector_size)
         folder = Path(tempfile.mkdtemp(prefix='distroclone-usb-'))
@@ -201,6 +256,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
         persistence_label = ('dc-p-' + token if image.profile.family == 'debian'
                              else image.profile.persistence_label)
         fresh_target(device, expected, confirmation, fd)
+        stack.enter_context(automount_blocked(device, runner))
         emit('progress', phase='partition', fraction=0)
         runner.run('sfdisk', '--wipe', 'always', '--wipe-partitions', 'always',
                    device, input=layout.sfdisk())
@@ -226,7 +282,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
                 if filesystem == 'vfat':
                     runner.run('mkfs.vfat', '-F', '32', '-n', label, target)
                 else:
-                    runner.run('mkfs.ext4', '-F', '-m', '0', '-O', '^orphan_file', '-L', label, target)
+                    runner.run('mkfs.ext4', '-F', '-m', '0', *mke2fs_options, '-L', label, target)
             current = assert_same_device(device, expected)
             if mounts(current):
                 raise ValueError(tr('The disk has mounted volumes or active swap. Unmount them first.'))
@@ -246,6 +302,7 @@ def create_usb(iso, device, persistence_mib, expected, confirmation, sha256, uid
                            '--boot-directory=' + str(boot_root / 'boot'), device)
         emit('done', message=tr('USB created and verified. Volumes unmounted.'), sha256=sha256)
     finally:
+        stack.close()
         os.close(fd)
         if lock_fd is not None:
             os.close(lock_fd)

@@ -1,10 +1,4 @@
 {
-  "Create a persistent live USB": [
-    "Crea una USB live persistente",
-    "Crear un USB live persistente",
-    "Créer une clé USB live persistante",
-    "Persistenten Live-USB erstellen"
-  ],
   "Your system, ready to travel.": [
     "Il tuo sistema, pronto a partire.",
     "Tu sistema, listo para viajar.",
@@ -190,12 +184,6 @@
     "Instala el paquete Debian antes de crear un USB.",
     "Installez le paquet Debian avant de créer une clé USB.",
     "Installiere vor dem Erstellen das Debian-Paket."
-  ],
-  "Authorization was cancelled or the writer could not start.": [
-    "Autorizzazione annullata o scrittura non avviata.",
-    "Se canceló la autorización o no pudo iniciarse la escritura.",
-    "Autorisation annulée ou écriture impossible à démarrer.",
-    "Autorisierung abgebrochen oder Schreiben konnte nicht starten."
   ],
   "Cannot start the USB writer.": [
     "Impossibile avviare la scrittura USB.",
@@ -652,5 +640,47 @@
     "Creación cancelada. El USB puede estar incompleto.",
     "Création annulée. La clé USB peut être incomplète.",
     "Erstellung abgebrochen. Der USB-Stick ist möglicherweise unvollständig."
+  ],
+  "Invalid persistence UUID": [
+    "UUID di persistenza non valido.",
+    "UUID de persistencia no válido.",
+    "UUID de persistance invalide.",
+    "Ungültige Persistenz-UUID."
+  ],
+  "Dependencies OK": [
+    "Dipendenze OK",
+    "Dependencias correctas",
+    "Dépendances OK",
+    "Abhängigkeiten OK"
+  ],
+  "Debian Live profile": [
+    "profilo Debian Live",
+    "perfil Debian Live",
+    "profil Debian Live",
+    "Debian-Live-Profil"
+  ],
+  "Ubuntu casper profile": [
+    "profilo Ubuntu casper",
+    "perfil Ubuntu casper",
+    "profil Ubuntu casper",
+    "Ubuntu-Casper-Profil"
+  ],
+  "USB drive": [
+    "Unità USB",
+    "Unidad USB",
+    "Clé USB",
+    "USB-Laufwerk"
+  ],
+  "Live ISO file": [
+    "File ISO live",
+    "Archivo ISO live",
+    "Fichier ISO live",
+    "Live-ISO-Datei"
+  ],
+  "Persistence size (GiB)": [
+    "Dimensione persistenza (GiB)",
+    "Tamaño de persistencia (GiB)",
+    "Taille de persistance (Gio)",
+    "Größe der Persistenz (GiB)"
   ]
 }

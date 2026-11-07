@@ -74,8 +74,9 @@ def boot_entries(config):
             initrds = tuple(iso_path(t) for t in tokens[1:])
         elif command == 'append':
             args = safe_arguments(tokens[1:])
-            initrds = tuple(iso_path(p) for t in tokens[1:] if t.startswith('initrd=')
-                            for p in t.split('=', 1)[1].split(','))
+            inline = tuple(iso_path(p) for t in tokens[1:] if t.startswith('initrd=')
+                           for p in t.split('=', 1)[1].split(','))
+            initrds = inline or initrds
     if kernel and initrds:
         yield kernel, initrds, args
 
@@ -128,7 +129,7 @@ def grub_config(profile, data_label, persistence_label, mode='none', data_uuid=N
         validate_uuid(persist_uuid)
     text += unlock_search(data_label, data_uuid if mode == 'all' else None)
     if profile.family == 'debian':
-        base = f'findiso=/distroclone/live.iso'
+        base = 'findiso=/distroclone/live.iso'
         persistent = f'persistence persistence-label={persistence_label}'
         temporary = 'nopersistence'
     elif profile.family == 'casper':

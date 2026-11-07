@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from distroclone_usb import writer
 from distroclone_usb.writer import Runner, assert_same_device, copy_verified, mount_volumes, partition_path
 
 
@@ -86,3 +87,60 @@ class WriterTest(unittest.TestCase):
                 with mount_volumes('/dev/sdz',Path(folder),FakeRunner()):
                     self.fail('Must not enter after cancelled mount')
         self.assertEqual(calls[-1], ('umount',(folder+'/efi',)))
+
+    def test_ext4_orphan_option_depends_on_e2fsprogs_version(self):
+        class Result:
+            def __init__(self, text):
+                self.stdout, self.stderr = '', text
+        for text, expected in (('mke2fs 1.47.0 (5-Feb-2023)', ['-O', '^orphan_file']),
+                               ('mke2fs 1.46.6 (1-Feb-2023)', []), ('garbage', [])):
+            with self.subTest(text=text), patch('subprocess.run', return_value=Result(text)):
+                self.assertEqual(writer.ext4_options(), expected)
+
+    def test_automount_rule_is_written_and_removed(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(writer, 'UDEV_RULES', folder):
+            calls = []
+            class FakeRunner:
+                def run(self, *args, **kwargs):
+                    calls.append(args)
+            with writer.automount_blocked('/dev/sdz', FakeRunner()):
+                rule = Path(folder) / '90-distroclone-usb-sdz.rules'
+                self.assertIn('UDISKS_IGNORE', rule.read_text())
+                self.assertIn('sdz[0-9]*', rule.read_text())
+            self.assertFalse(rule.exists())
+            self.assertEqual(len([c for c in calls if c[0] == 'udevadm']), 2)
+
+    def test_automount_rule_ignores_odd_device_names(self):
+        with tempfile.TemporaryDirectory() as folder, patch.object(writer, 'UDEV_RULES', folder):
+            with writer.automount_blocked('/dev/../etc/x"y', None):
+                pass
+            self.assertEqual(list(Path(folder).iterdir()), [])
+
+    def test_lock_directory_must_be_private_to_root(self):
+        with tempfile.TemporaryDirectory() as folder:
+            target = Path(folder) / 'locks'
+            with patch.object(writer, 'RUN_DIR', str(target)):
+                if os.geteuid() == 0:
+                    self.assertEqual(writer.lock_directory(), str(target))
+                    target.chmod(0o777)
+                    with self.assertRaises(ValueError):
+                        writer.lock_directory()
+                else:
+                    with self.assertRaises(ValueError):
+                        writer.lock_directory()
+
+    def test_copy_verification_drops_cached_pages(self):
+        with tempfile.TemporaryDirectory() as folder, patch('os.posix_fadvise') as advise:
+            source = Path(folder) / 'a.iso'
+            source.write_bytes(b'x' * 1000)
+            import hashlib
+            fd = os.open(source, os.O_RDONLY)
+            try:
+                copy_verified(fd, Path(folder) / 'b.iso', hashlib.sha256(b'x' * 1000).hexdigest(), lambda *a, **k: None)
+            finally:
+                os.close(fd)
+            self.assertGreaterEqual(advise.call_count, 2)
+
+
+if __name__ == '__main__':
+    unittest.main()

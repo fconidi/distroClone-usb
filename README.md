@@ -18,7 +18,7 @@ desktop ISO. Companion to **distroClone** (ISO creation) and
 Download the Debian package from the [latest release](https://github.com/fconidi/distroClone-usb/releases/latest), then install it:
 
 ```bash
-sudo apt install ./distroclone-usb_0.3.1_all.deb
+sudo apt install ./distroclone-usb_0.3.2_all.deb
 distroclone-usb
 ```
 

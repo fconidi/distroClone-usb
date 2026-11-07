@@ -1,3 +1,21 @@
+distroclone-usb (0.3.2) unstable; urgency=medium
+
+  * Keep the udisks automount away from the target disk while it is rewritten.
+  * Verify the USB copy against the device instead of cached pages.
+  * Recognize isolinux menus that give `initrd` on its own line.
+  * Use a root-only lock directory and root-owned parents for the ISO work folders.
+  * Hand the Shared folder to the live user at boot instead of assuming UID 1000.
+  * Require 16 characters for full encryption; document the boot-area limits.
+  * Skip the `orphan_file` ext4 option on e2fsprogs older than 1.47.
+  * Do not report cancellation after a USB was completed; lock memory against swap.
+  * Make the SHARED-README readable, ignore kernel-argument globbing at unlock.
+  * Keep the passphrase fields in view, shorten long drive names, add a visible
+    warning style, better contrast and accessible names; translate profile names.
+  * Depend on `policykit-1` where `pkexec`/`polkitd` packages are missing; clean up
+    Python caches on removal; drop an outdated guide from the package.
+
+ -- Franco Conidi <fconidi@gmail.com>  Sat, 07 Nov 2026 18:30:00 +0100
+
 distroclone-usb (0.3.1) unstable; urgency=medium
 
   * Capitalize the SysLinuxOS Tools menu entry as DistroClone USB.

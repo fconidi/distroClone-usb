@@ -15,6 +15,7 @@ failure='distroClone USB: encrypted volumes could not be unlocked. Reboot to ret
 language=en
 data_uuid=
 persist_uuid=
+set -f  # no glob expansion of kernel arguments
 for argument in $(cat /proc/cmdline); do
     case "$argument" in
         dcusb.lang=*) language=${argument#*=} ;;

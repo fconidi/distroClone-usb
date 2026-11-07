@@ -28,6 +28,13 @@ kernel /live/vmlinuz
 append initrd=/live/initrd.img boot=live components locales=it_IT.UTF-8 quiet'''])
         self.assertIn('locales=it_IT.UTF-8', p.arguments)
 
+    def test_isolinux_initrd_on_its_own_line_is_supported(self):
+        p = detect_profile(DEBIAN_FILES, ['''label live
+linux /live/vmlinuz
+initrd /live/initrd.img
+append boot=live components quiet'''])
+        self.assertEqual(p.initrds, ('/live/initrd.img',))
+
     def test_casper_release_controls_label(self):
         files = {'/casper/vmlinuz', '/casper/initrd', '/casper/filesystem.squashfs',
                  '/EFI/BOOT/BOOTX64.EFI'}

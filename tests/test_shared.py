@@ -17,13 +17,15 @@ class SharedTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, patch('os.chown'):
             root = Path(folder)
             prepare_shared(root, self.profile(), '12345678-1234-1234-1234-123456789abc')
-            self.assertEqual((root / 'Shared').stat().st_mode & 0o777, 0o700)
+            self.assertEqual((root / 'Shared').stat().st_mode & 0o7777, 0o1777)
             self.assertEqual(os.readlink(root / 'rw/etc/skel/Shared'), '/Shared')
             service = root / 'rw/etc/systemd/system/distroclone-usb-shared.service'
             text = service.read_text()
             self.assertIn('UUID=12345678-1234-1234-1234-123456789abc', text)
             self.assertIn('nosuid,nodev,noexec', text)
             self.assertIn('ln -sT /Shared /home/admin/Shared', text)
+            self.assertIn('chown admin: /run/distroclone-usb-persistence/Shared', text)
+            self.assertEqual((root / 'SHARED-README.txt').stat().st_mode & 0o777, 0o644)
             self.assertFalse((root / 'rw/home/admin').exists())
             self.assertNotIn('ExecStart=/Shared', text)
             self.assertTrue((service.parent / 'multi-user.target.wants' / service.name).is_symlink())

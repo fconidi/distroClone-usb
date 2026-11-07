@@ -4,7 +4,7 @@ Every newly created USB has a `Shared` directory on its persistence volume.
 In a persistent live session, open **Shared** in the live user's home or `/Shared`.
 Files copied there from another Linux system are visible in both places.
 System changes remain in `rw` (Debian) or `upper` (casper). Do not modify those
-internal directories or `work` by hand. Shared is private to live UID 1000.
+internal directories or `work` by hand. Shared is private to the live user: at boot the live system hands the folder to that user.
 It uses the persistence space selected in the application; there is no separate
 public FAT/exFAT partition. Windows does not read this ext4 directory natively.
 
@@ -25,7 +25,8 @@ The persistence volume uses LUKS2 with Argon2id. Full mode also encrypts the ISO
 volume with LUKS2/PBKDF2, supported by the installed GRUB 2.12. Both volumes use
 the same passphrase: an offline attacker can target the PBKDF2 volume, so the
 Argon2id volume does not increase the effective resistance of that shared phrase.
-Use a long, unpredictable phrase. The minimum is 12 characters for both encrypted modes. Full encryption requires
+Use a long, unpredictable phrase. The minimum is 12 characters for persistence-only
+encryption and 16 for full encryption, which exposes the PBKDF2 volume. Full encryption requires
 ASCII characters. The early boot keyboard uses US
 layout; letters, digits and spaces avoid punctuation layout differences.
 
@@ -61,7 +62,8 @@ is not secure erasure of previous data. The tool does not encrypt an existing US
 Back them up before recreating it.
 
 The minimal boot area remains unencrypted. This feature does not authenticate
-that area or prevent a modified bootloader from stealing the phrase. Keep control
+that area or prevent a modified bootloader or initramfs from stealing the phrase
+(an attacker with physical access can replace them). Keep control
 of the USB. Secure Boot remains unsupported and must be disabled.
 Other Linux desktops can unlock LUKS volumes through their disk/file manager and
 then open Shared. Unlock the persistence volume, rather than copying private

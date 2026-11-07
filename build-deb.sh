@@ -20,6 +20,7 @@ install -m 644 "$ROOT_DIR/packaging/distroclone-usb.svg" "$STAGE_DIR/usr/share/i
 install -m 644 "$ROOT_DIR/packaging/com.syslinuxos.distroclone-usb.policy" "$STAGE_DIR/usr/share/polkit-1/actions/"
 install -m 644 "$ROOT_DIR/README.md" "$ROOT_DIR/LICENSE" "$STAGE_DIR/usr/share/doc/distroclone-usb/"
 install -m 644 "$ROOT_DIR/packaging/copyright" "$STAGE_DIR/usr/share/doc/distroclone-usb/copyright"
+install -m 755 "$ROOT_DIR/packaging/postrm" "$STAGE_DIR/DEBIAN/postrm"
 gzip -n -9 -c "$ROOT_DIR/CHANGELOG.md" > "$STAGE_DIR/usr/share/doc/distroclone-usb/changelog.gz"
 gzip -n -9 -c "$ROOT_DIR/packaging/changelog" > "$STAGE_DIR/usr/share/doc/distroclone-usb/changelog.Debian.gz"
 gzip -n -9 -c "$ROOT_DIR/packaging/distroclone-usb.1" > "$STAGE_DIR/usr/share/man/man1/distroclone-usb.1.gz"

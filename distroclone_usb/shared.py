@@ -5,6 +5,8 @@ from pathlib import Path
 import re
 import uuid
 
+from .i18n import tr
+
 
 def live_user(profile):
     for key in ('username', 'user'):
@@ -18,10 +20,12 @@ def live_user(profile):
 
 def prepare_shared(persistence, profile, filesystem_uuid):
     if str(uuid.UUID(filesystem_uuid)) != filesystem_uuid:
-        raise ValueError('Invalid persistence UUID')
+        raise ValueError(tr('Invalid persistence UUID'))
     shared = persistence / 'Shared'
-    shared.mkdir(mode=0o700)
-    os.chown(shared, 1000, 1000)
+    shared.mkdir()
+    # The live user's uid differs between distributions, so the live system hands the
+    # folder to that user at boot; until then it stays usable by any local account.
+    shared.chmod(0o1777)
     overlay = persistence / ('rw' if profile.family == 'debian' else 'upper')
     for relative in ('', 'etc', 'etc/systemd', 'etc/systemd/system', 'etc/skel'):
         directory = overlay / relative
@@ -44,6 +48,8 @@ RemainAfterExit=yes
 ExecStart=/usr/bin/mkdir -p /run/distroclone-usb-persistence /Shared
 ExecStart=/usr/bin/mount -t ext4 -o nosuid,nodev,noexec UUID={filesystem_uuid} /run/distroclone-usb-persistence
 ExecStart=/usr/bin/mount --bind /run/distroclone-usb-persistence/Shared /Shared
+ExecStart=-/usr/bin/chown {live_user(profile)}: /run/distroclone-usb-persistence/Shared
+ExecStart=-/usr/bin/chmod 0700 /run/distroclone-usb-persistence/Shared
 ExecStart=-/usr/bin/ln -sT /Shared /home/{live_user(profile)}/Shared
 ExecStopPost=-/usr/bin/umount /Shared
 ExecStopPost=-/usr/bin/umount /run/distroclone-usb-persistence
@@ -58,7 +64,8 @@ WantedBy=multi-user.target
     (wants / service.name).symlink_to('/etc/systemd/system/' + service.name)
     # Let live-config create the home normally and copy the full distro skeleton.
     (overlay / 'etc/skel/Shared').symlink_to('/Shared')
-    (persistence / 'SHARED-README.txt').write_text(
+    readme = persistence / 'SHARED-README.txt'
+    readme.write_text(
         'distroClone USB: copy portable files into the Shared directory.\n'
         'In the persistent live session open Shared in your home directory.\n'
         'System changes are separate; do not edit rw/upper or work manually.\n'
@@ -67,3 +74,4 @@ WantedBy=multi-user.target
         'ES: copia los archivos en Shared; en la live abre Shared desde tu carpeta personal.\n'
         'FR: copiez les fichiers dans Shared ; ouvrez Shared dans votre dossier personnel live.\n'
         'DE: Dateien nach Shared kopieren; im Live-System Shared im Home-Ordner öffnen.\n')
+    readme.chmod(0o644)

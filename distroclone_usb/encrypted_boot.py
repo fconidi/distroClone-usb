@@ -11,7 +11,7 @@ import tempfile
 import time
 
 from .i18n import tr
-from .iso import demote, open_iso
+from .iso import demote, open_iso, private_workdir
 
 
 def limited_output(command, uid=None, pass_fds=()):
@@ -70,9 +70,7 @@ def read_order(extracted, relative):
 def check_initrd_capabilities(iso_fd, profile, uid):
     contents = set()
     orders = []
-    with tempfile.TemporaryDirectory(prefix='dcusb-initrd-') as folder:
-        if os.geteuid() == 0 and uid is not None:
-            os.chown(folder, uid, -1)
+    with private_workdir('dcusb-initrd-', uid) as folder:
         for index, member in enumerate(profile.initrds):
             path = Path(folder) / str(index)
             limited_output(['/usr/bin/xorriso', '-abort_on', 'FAILURE', '-indev',

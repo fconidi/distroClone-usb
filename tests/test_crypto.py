@@ -41,11 +41,13 @@ class CryptoTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_encryption(Profile('casper', 'Ubuntu', '', (), (), 'writable'), 'all', 'a'*24)
 
-    def test_both_encrypted_modes_accept_twelve_and_reject_eleven_characters(self):
-        for mode in ('persistence', 'all'):
-            validate_encryption(DEBIAN, mode, 'Abcd1234Efgh')
-            with self.assertRaises(ValueError):
-                validate_encryption(DEBIAN, mode, 'Abcd1234Efg')
+    def test_persistence_mode_needs_twelve_and_full_mode_sixteen_characters(self):
+        validate_encryption(DEBIAN, 'persistence', 'Abcd1234Efgh')
+        with self.assertRaises(ValueError):
+            validate_encryption(DEBIAN, 'persistence', 'Abcd1234Efg')
+        validate_encryption(DEBIAN, 'all', 'Abcd1234Efgh5678')
+        with self.assertRaises(ValueError):
+            validate_encryption(DEBIAN, 'all', 'Abcd1234Efgh567')
 
     def test_secret_transport_is_bounded_and_rejects_extra_fields(self):
         self.assertEqual(read_secret(io.BytesIO(b'{"password":"test only phrase"}\n')), 'test only phrase')

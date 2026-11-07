@@ -1,10 +1,12 @@
 """Inspect ISO metadata through an unprivileged xorriso process."""
 
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 import hashlib
 import os
 from pathlib import Path
 import shlex
+import shutil
 import stat
 import subprocess
 import tempfile
@@ -13,8 +15,28 @@ from .i18n import tr
 from .profiles import Profile, UnsupportedISO, detect_profile
 
 
+@contextmanager
+def private_workdir(prefix, uid=None):
+    """Root-owned traversable parent with a user-owned child.
+
+    The unprivileged ISO parser writes only inside the child; it cannot rename or
+    replace the child itself, so root never follows links it swapped in.
+    """
+    parent = tempfile.mkdtemp(prefix=prefix)
+    try:
+        os.chmod(parent, 0o711)
+        work = os.path.join(parent, 'work')
+        os.mkdir(work, 0o700)
+        if uid is not None and os.geteuid() == 0:
+            os.chown(work, uid, -1)
+        yield work
+    finally:
+        shutil.rmtree(parent, ignore_errors=True)
+
+
 @dataclass(frozen=True)
 class ISOImage:
+    path: str
     path: str
     size: int
     sha256: str
@@ -103,9 +125,7 @@ def inspect_fd(fd, path, uid=None, progress=None):
     paths = configs[:64] + (['/.disk/info'] if '/.disk/info' in files else [])
     contents = {}
     # Extraction destination is controlled, with no ISO-provided filenames.
-    with tempfile.TemporaryDirectory(prefix='dcusb-inspect-') as folder:
-        if uid is not None and os.geteuid() == 0:
-            os.chown(folder, uid, -1)
+    with private_workdir('dcusb-inspect-', uid) as folder:
         for index, source in enumerate(paths):
             dest = Path(folder) / str(index)
             run('-osirrox', 'on', '-extract', source, str(dest))

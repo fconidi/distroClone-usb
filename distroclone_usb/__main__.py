@@ -44,7 +44,7 @@ def main():
                               'expected_id': device_token(disk), 'layout': layout.to_dict()}, indent=2))
         elif args.check_dependencies:
             check_dependencies()
-            print('Dependencies OK')
+            print(tr('Dependencies OK'))
         else:
             from .gui import run
             return run()

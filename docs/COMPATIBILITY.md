@@ -1,6 +1,6 @@
 # Compatibility
 
-Supported profiles in version 0.3.1. Compatibility depends on the structure of each live image.
+Supported profiles in version 0.3.2. Compatibility depends on the structure of each live image.
 
 | ISO family | Support |
 |---|---|

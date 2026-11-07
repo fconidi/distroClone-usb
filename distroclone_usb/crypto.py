@@ -8,6 +8,13 @@ from .i18n import tr
 from .cancellation import defer_cancellation
 
 MODES = ('none', 'persistence', 'all')
+# Full encryption keeps one volume on PBKDF2 (the only KDF GRUB can unlock), which
+# is cheaper to attack offline, so it demands a longer passphrase.
+MIN_LENGTH = {'persistence': 12, 'all': 16}
+
+
+def minimum_length(mode):
+    return MIN_LENGTH.get(mode, 12)
 
 
 def read_secret(stream):
@@ -30,7 +37,7 @@ def validate_encryption(profile, mode, password):
         return
     if profile.family != 'debian':
         raise ValueError(tr('Encryption currently requires a compatible Debian Live / SysLinuxOS ISO.'))
-    minimum = 12
+    minimum = minimum_length(mode)
     if (not isinstance(password, str) or not minimum <= len(password) <= 512
             or any(ord(c) < 32 or ord(c) == 127 for c in password)):
         raise ValueError(tr('Use a passphrase of at least {minimum} characters.').format(minimum=minimum))

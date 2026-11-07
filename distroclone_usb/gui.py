@@ -11,9 +11,9 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
-from .crypto import validate_encryption
+from .crypto import minimum_length, validate_encryption
 from .devices import device_token, eligible_disks, inventory, mounts, validate_target
-from .gui_widgets import Form, asset_path, confirm_creation
+from .gui_widgets import Form, asset_path, confirm_creation, family_name
 from .i18n import get_language, set_language, tr
 from .iso import inspect_iso
 from .layout import make_layout
@@ -48,7 +48,7 @@ class Window(Gtk.ApplicationWindow):
         self.form.unmount.connect('clicked', self.unmount)
         self.form.devices.connect('changed', self.selection_changed)
         self.form.persistence.connect('value-changed', self.selection_changed)
-        self.form.encryption.connect('changed', self.security_changed)
+        self.form.encryption.connect('changed', self.encryption_chosen)
         self.form.password.connect('changed', self.selection_changed)
         self.form.confirm_password.connect('changed', self.selection_changed)
         self.form.create.connect('clicked', self.create)
@@ -105,6 +105,12 @@ class Window(Gtk.ApplicationWindow):
         self.form.cancel.set_sensitive(self.writing and not self.cancel_requested)
         self.security_changed()
 
+    def encryption_chosen(self, *args):
+        self.security_changed()
+        if (self.form.encryption.get_active_id() or 'none') != 'none' and not self.busy:
+            # Bring the passphrase fields into view inside the scrolled form.
+            self.form.password.grab_focus()
+
     def security_changed(self, *args):
         mode = self.form.encryption.get_active_id() or "none"
         for widget in (self.form.password, self.form.confirm_password):
@@ -118,7 +124,7 @@ class Window(Gtk.ApplicationWindow):
             "all": 'Full encryption: ISO and private data are encrypted; boot code remains readable. US boot keyboard. GRUB and Linux ask separately.'}
         text = tr(help_text[mode])
         if mode != "none":
-            text += "\n" + tr('Use a passphrase of at least {minimum} characters.').format(minimum=12)
+            text += "\n" + tr('Use a passphrase of at least {minimum} characters.').format(minimum=minimum_length(mode))
             text += "\n" + tr('Encrypted creation uses quick formatting. Forgotten passphrases cannot be recovered.')
         self.form.security_info.set_text(text)
         self.selection_changed()
@@ -187,10 +193,10 @@ class Window(Gtk.ApplicationWindow):
         self.image = image
         self.set_busy(False)
         if error:
-            self.form.iso_info.set_text(str(error))
+            self.form.iso_info.set_text(tr('Choose a Debian Live, SysLinuxOS, Ubuntu or Linux Mint desktop ISO.'))
             self.error(error)
         else:
-            self.form.iso_info.set_text(f'{image.profile.family} · {image.size/1024**3:.2f} GiB · {image.profile.kernel}')
+            self.form.iso_info.set_text(f'{family_name(image.profile.family)} · {image.size/1024**3:.2f} GiB · {image.profile.kernel}')
             self.form.status.set_text(tr('ISO recognized') + ': ' + Path(image.path).name)
             self.append_log('SHA-256: ' + image.sha256)
 
@@ -250,6 +256,7 @@ class Window(Gtk.ApplicationWindow):
         self.writing = True
         self.set_busy(True)
         self.form.progress.set_fraction(0)
+        self.form.percent.set_text('0%')
         self.form.status.set_text(tr('Authentication / validating ISO'))
         def work(password):
             completed = False
@@ -299,7 +306,7 @@ class Window(Gtk.ApplicationWindow):
             title, start, weight = PHASES.get(event.get('phase'), PHASES['inspect'])
             fraction = start + weight * max(0, min(1, event.get('fraction', 0)))
             self.form.progress.set_fraction(fraction)
-            self.form.progress.set_text(f'{fraction:.0%}')
+            self.form.percent.set_text(f'{fraction:.0%}')
             self.form.status.set_text(tr(title))
         elif event.get('event') == 'cancelled':
             self.cancel_requested = True
@@ -323,7 +330,7 @@ class Window(Gtk.ApplicationWindow):
         self.append_log(text)
         if success:
             self.form.progress.set_fraction(1)
-            self.form.progress.set_text('100%')
+            self.form.percent.set_text('100%')
 
     def close_requested(self, *args):
         if self.writing:
@@ -344,6 +351,9 @@ def run():
 def apply_style():
     css = Gtk.CssProvider()
     css.load_from_data(b'.app-title { font-size: 26px; font-weight: bold; } '
-                      b'.heading { font-weight: bold; }')
+                      b'.heading { font-weight: bold; } '
+                      b'.warning-text { font-weight: bold; padding-left: 8px; '
+                      b'border-left: 4px solid @warning_color; } '
+                      b'.dim-label { opacity: 0.85; }')
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css,
                                            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
