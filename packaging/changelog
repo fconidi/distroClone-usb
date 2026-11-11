@@ -1,3 +1,9 @@
+distroclone-usb (0.3.3) unstable; urgency=medium
+
+  * Show a Close button once the USB has been created and verified.
+
+ -- Franco Conidi <fconidi@gmail.com>  Wed, 11 Nov 2026 12:58:20 +0100
+
 distroclone-usb (0.3.2) unstable; urgency=medium
 
   * Keep the udisks automount away from the target disk while it is rewritten.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3 — 2026-11-11
+
+- Show a Close button once the USB has been created and verified.
+
 ## 0.3.2 — 2026-11-07
 
 - Keep the udisks automount away from the target disk while it is rewritten.

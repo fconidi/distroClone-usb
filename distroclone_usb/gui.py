@@ -36,6 +36,7 @@ class Window(Gtk.ApplicationWindow):
         self.writer_process = None
         self.writer_error = False
         self.cancel_requested = False
+        self.completed = False
         self.build_form()
         self.connect('delete-event', self.close_requested)
         self.refresh()
@@ -53,6 +54,8 @@ class Window(Gtk.ApplicationWindow):
         self.form.confirm_password.connect('changed', self.selection_changed)
         self.form.create.connect('clicked', self.create)
         self.form.cancel.connect('clicked', self.cancel_creation)
+        self.form.close.connect('clicked', lambda *args: self.close())
+        self.form.close.set_visible(self.completed)
         self.form.language.connect('changed', self.change_language)
 
     def change_language(self, widget):
@@ -253,6 +256,8 @@ class Window(Gtk.ApplicationWindow):
         self.cancel_requested = False
         self.writer_process = None
         self.writer_error = False
+        self.completed = False
+        self.form.close.hide()
         self.writing = True
         self.set_busy(True)
         self.form.progress.set_fraction(0)
@@ -328,6 +333,8 @@ class Window(Gtk.ApplicationWindow):
                   'Creation failed. The USB may be incomplete.')
         self.form.status.set_text(text)
         self.append_log(text)
+        self.completed = success
+        self.form.close.set_visible(success)
         if success:
             self.form.progress.set_fraction(1)
             self.form.percent.set_text('100%')

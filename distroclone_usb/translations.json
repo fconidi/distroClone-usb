@@ -682,5 +682,17 @@
     "Tamaño de persistencia (GiB)",
     "Taille de persistance (Gio)",
     "Größe der Persistenz (GiB)"
+  ],
+  "Close": [
+    "Chiudi",
+    "Cerrar",
+    "Fermer",
+    "Schließen"
+  ],
+  "Close the window; the USB is ready.": [
+    "Chiudi la finestra; la USB è pronta.",
+    "Cierra la ventana; el USB está listo.",
+    "Fermer la fenêtre ; la clé USB est prête.",
+    "Fenster schließen; der USB-Stick ist bereit."
   ]
 }
